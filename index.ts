@@ -8,7 +8,7 @@ import mongoose from 'mongoose';
 dotenv.config();
 
 // PORT our application or default port from the backend service
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 const app: Express = express();
 
 // Library which provide 15 middlewares to cover our security
@@ -42,6 +42,7 @@ app.use((error: HttpError, req: Request, res: Response, next: NextFunction) => {
 const { DB_USER, DB_PASSWORD, DB_NAME } = process.env;
 mongoose
   .connect(`mongodb+srv://${DB_USER}:${DB_PASSWORD}@cluster0.uqusa.mongodb.net/${DB_NAME}`)
+  .then(() => mongoose.set('debug', true))
   .then(() => {
     app.listen(PORT, () => console.log(`We are Connected to Database and we are running server on port ${PORT} ⚡`));
   })
