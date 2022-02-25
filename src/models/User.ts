@@ -4,8 +4,8 @@ const Schema = mongoose.Schema;
 
 const userSchema = new Schema(
   {
-    name: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
+    name: { type: String, required: true, min: 2, max: 25 },
+    email: { type: String, required: true, unique: true, min: 3, lowercase: true },
     password: { type: String, required: true, minlength: 6 },
     role: { type: String, default: 'Client' },
     verifiedEmail: { type: Boolean, default: false },

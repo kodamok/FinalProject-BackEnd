@@ -1,6 +1,5 @@
 import express from 'express';
 import {
-  example,
   login,
   signUp,
   addProject,
@@ -35,7 +34,9 @@ router.patch('/verifyEmail', verifyEmail);
 router.patch('/resetPassword', setNewPassword);
 
 // Middleware (CheckAuth)
-// TODO Check Auth Middleware
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
 router.use(checkAuth);
 
 // Email is Verified

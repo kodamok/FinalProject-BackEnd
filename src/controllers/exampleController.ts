@@ -23,11 +23,11 @@ export const example = async (req: Request, res: Response, next: NextFunction) =
 // Login/Signup
 
 export const login = async (req: Request, res: Response, next: NextFunction) => {
-  // const { email, password } = req.body;
-  const email = 'John@gmail.com';
-  const password = '1231231';
-  let existingUser;
+  const { password, email } = req.body;
+  // const email = 'John5@gmail.com';
+  // const password = '1231231';
 
+  let existingUser;
   try {
     existingUser = await User.findOne({ email: email });
   } catch (err) {
@@ -39,7 +39,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     const error = new HttpError('Invalid credentials, could not log you in.', 403);
     return next(error);
   }
-  // if (existingUser.verifiedEmail === false) return next(new HttpError('You need verify email.', 403));
+  if (existingUser.verifiedEmail === false) return next(new HttpError('You need verify email.', 403));
 
   let isValidPassword = false;
   try {
@@ -56,7 +56,11 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 
   let token;
   try {
-    token = jwt.sign({ userId: existingUser.id, email: existingUser.email, role: existingUser.role }, `${process.env.JWT_KEY}`, { expiresIn: '1h' });
+    token = jwt.sign(
+      { userId: existingUser.id, email: existingUser.email, role: existingUser.role, verifiedEmail: existingUser.verifiedEmail },
+      `${process.env.JWT_KEY}`,
+      { expiresIn: '1h' },
+    );
   } catch (err) {
     const error = new HttpError('Logging in failed, please try again later.', 500);
     return next(error);
@@ -72,10 +76,10 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 };
 
 export const signUp = async (req: Request, res: Response, next: NextFunction) => {
-  // const { name, email, password } = req.body;
-  const name = 'John7';
-  const email = 'viest1994@gmail.com';
-  const password = '1231231';
+  const { name, email, password, identityCardNumber, taxNumber } = req.body;
+  // const name = 'John7';
+  // const email = 'viest1994@gmail.com';
+  // const password = '1231231';
   const role = 'Freelancer';
   let existingUser;
   try {
@@ -100,10 +104,12 @@ export const signUp = async (req: Request, res: Response, next: NextFunction) =>
 
   const createdUser = new User({
     name,
-    email,
+    email: email.toLowerCase(),
     password: hashedPassword,
     verifiedEmail: false,
     role,
+    identityCardNumber,
+    taxNumber,
   });
 
   try {
