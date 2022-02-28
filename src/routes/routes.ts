@@ -27,7 +27,7 @@ export const router = express.Router();
 
 // Experiment routes
 
-router.get('/events/:token', eventsHandler);
+
 router.get('/status', status);
 // router.post('/fact', addFact);
 
@@ -45,6 +45,9 @@ router.post('/resetPassword', sendLinkToResetPassword);
 
 // @ts-ignore
 router.use(checkAuth);
+
+// @ts-ignore
+router.get('/events/:token', eventsHandler);
 
 // Email is Verified
 // @ts-ignore

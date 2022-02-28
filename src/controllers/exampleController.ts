@@ -29,7 +29,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
   const { password, email } = req.body;
   // const email = 'John5@gmail.com';
   // const password = '1231231';
-
+  console.log('i try backend ');
   let existingUser;
   try {
     existingUser = await User.findOne({ email: email });
@@ -164,8 +164,8 @@ export const signUp = async (req: Request, res: Response, next: NextFunction) =>
 // Send Email and Verify Email
 
 export const sendLinkToVerifiedEmail = async (req: Request, res: Response, next: NextFunction) => {
-  // const {email} = req.body
-  const email = 'viest1994@gmail.com';
+  const { email } = req.body;
+  // const email = 'viest1994@gmail.com';
   let existingUser;
   try {
     existingUser = await User.findOne({ email });
@@ -369,14 +369,14 @@ export const setNewPassword = async (req: userData, res: Response, next: NextFun
 // Projects
 
 export const getProjects = async (req: userData, res: Response, next: NextFunction) => {
-  // const { userId, role } = req.userData;
-  // let freelancerId: string;
-  // if (role === 'Freelancer') {
-  //   freelancerId = userId;
-  // } else {
-  //   throw next(new HttpError('something wrrong', 500));
-  // }
-  const freelancerId = '620e8720dd0a2b6f50f526da';
+  const { userId, role } = req.userData;
+  let freelancerId: string;
+  if (role === 'Freelancer') {
+    freelancerId = userId;
+  } else {
+    throw next(new HttpError('something wrrong', 500));
+  }
+  // const freelancerId = '620e8720dd0a2b6f50f526da';
   let allProjects;
   try {
     allProjects = await User.findOne({ _id: freelancerId }).populate('projects');
@@ -564,11 +564,11 @@ export const deleteOneClient = async (req: Request, res: Response, next: NextFun
 };
 
 export const addClient = async (req: Request, res: Response, next: NextFunction) => {
-  const { name, email, password, freelancerId } = req.body;
-  // const name = 'John3MyClient';
-  // const email = 'John6@gmail.com';
-  // const password = '1231231';
-  // const freelancerId = '620e8720dd0a2b6f50f526da';
+  // const { name, email, password, freelancerId } = req.body;
+  const name = 'John3MyClient';
+  const email = 'John15@gmail.com';
+  const password = '1231231';
+  const freelancerId = '6217d7d302619e4c82dce9d1';
   let existingUser;
   try {
     existingUser = await User.findOne({ email: email });
@@ -616,15 +616,20 @@ export const addClient = async (req: Request, res: Response, next: NextFunction)
 // Messages
 
 export const addMessage = async (req: userData, res: Response, next: NextFunction) => {
-  const text = 'new Message 😀';
+  const text = 'new Message 😀11';
   // User - Owner message
-  const { userId } = req.userData;
+  // const { userId } = req.userData;
   // Receiver Message
   // const { receiverId } = req.body;
-  // const userId = '620f7f63b5d3f9af71000654';
+  // John12@gmail.com
+  const userId = '6217d7d302619e4c82dce9d1';
   // Freelancer
   // const receiverId = '62192d9c2e604dba40f3a58b';
-  const receiverId = '62174aab25547950c4d6e6c4';
+  // const receiverId = '62174aab25547950c4d6e6c4';
+  // Clients John12Gmail.com
+  // const receiverId = '621cb6c5bbe612528e95bb96';
+  // const receiverId = '621cb6e34b851e3f19ddc4f2';
+  const receiverId = '621cb6e998abd24953dce2d9';
   let existingUser;
   try {
     existingUser = await User.findById(userId);
@@ -715,24 +720,20 @@ async function getMessages(id: string) {
   return allMessages.messages;
 }
 
-export async function eventsHandler(req: Request, res: Response, next: NextFunction) {
+export async function eventsHandler(req: userData, res: Response, next: NextFunction) {
+  console.log('Hello Events Handler1');
+  const { userId } = req.userData;
   const headers = {
     'Content-Type': 'text/event-stream',
     Connection: 'keep-alive',
     'Cache-Control': 'no-cache',
-    'Access-Control-Allow-Origin': '*',
   };
   res.writeHead(200, headers);
-  const token = req.params.token;
-  const decodedToken = (await jwt.verify(token, JWT_KEY)) as DataStoredInToken;
-  if (!decodedToken) throw new HttpError('Something bad happened', 500);
-  const { userId } = decodedToken;
   await getMessages(userId);
 
   const data = `data: ${JSON.stringify(messages)}\n\n`;
   res.write(data);
-  // const clientId = Date.now();
-  // console.log({ res });
+
   const newClient = {
     id: userId,
     res,

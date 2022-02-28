@@ -27,7 +27,15 @@ export default async (req: userData, res: Response, next: NextFunction) => {
   try {
     console.log('middleware Auth3');
     // Checking if token exist
-    const token = req.headers.authorization.split(' ')[1]; // Authorization: 'Bearer TOKEN'
+    let token: string;
+    if (path.length > 2 && path[2].length > 40) {
+      token = path[2];
+    } else {
+      token = req.headers.authorization.split(' ')[1]; // Authorization: 'Bearer TOKEN'
+    }
+
+    // const token = req.headers.authorization.split(' ')[1];
+    console.log({ token });
     // Not necessary ->
     // if (!token) throw new HttpError('Authorization failed! 1', 403);
 
