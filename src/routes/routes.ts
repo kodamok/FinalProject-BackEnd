@@ -18,36 +18,46 @@ import {
   setNewPassword,
   addMessage,
   getMessage,
+  eventsHandler,
+  status,
 } from '../controllers/exampleController';
 import checkAuth from '../middlewares/checkAuth';
 
 export const router = express.Router();
+
+// Experiment routes
+
+router.get('/events/:token', eventsHandler);
+router.get('/status', status);
+// router.post('/fact', addFact);
 
 // Routes Login and Signup POST
 router.post('/login', login);
 router.post('/signup', signUp);
 
 // Send Verification Email
-router.patch('/verifyEmail', verifyEmail);
+router.post('/verifyEmail', sendLinkToVerifiedEmail);
 
 // Send Email With Link to Reset Password
-router.patch('/resetPassword', setNewPassword);
+router.post('/resetPassword', sendLinkToResetPassword);
 
 // Middleware (CheckAuth)
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 router.use(checkAuth);
 
 // Email is Verified
-router.post('/verifyEmail', sendLinkToVerifiedEmail);
+// @ts-ignore
+router.patch('/verifyEmail', verifyEmail);
 
 // Password has been reset
-router.post('/resetPassword', sendLinkToResetPassword);
+// @ts-ignore
+router.patch('/resetPassword', setNewPassword);
 
 // PROJECT ROUTES
 
 // GET
+// @ts-ignore
 router.get('/project', getProjects);
 router.get('/project/:id', getOneProject);
 // POST
@@ -60,6 +70,7 @@ router.delete('/project/:id', deleteOneProject);
 // USER ROUTES
 
 // GET
+// @ts-ignore
 router.get('/user/freelancer/:freelancerId', getClients);
 router.get('/user/:userId', getOneClient);
 // POST
@@ -74,4 +85,5 @@ router.delete('/user/:id', deleteOneClient);
 // GET
 router.get('/message', getMessage);
 // POST
+// @ts-ignore
 router.post('/message', addMessage);

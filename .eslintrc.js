@@ -17,5 +17,6 @@ module.exports = {
     'space-in-parens': 'error',
     'no-multiple-empty-lines': 'error',
     'prefer-const': 'error',
+    '@typescript-eslint/ban-ts-comment': 'off',
   },
 };

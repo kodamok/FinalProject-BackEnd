@@ -1,4 +1,4 @@
-import { NextFunction, Request, Response } from 'express';
+import { Application, NextFunction, Request, Response } from 'express';
 import HttpError from '../models/httpError';
 import User from '../models/User';
 import Project from '../models/Project';
@@ -7,9 +7,12 @@ import Message from '../models/Message';
 const bcrypt = require('bcrypt');
 // import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
+import { DataStoredInToken, userData } from '../middlewares/checkAuth';
 const sgMail = require('@sendgrid/mail');
 //
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+const { FRONTEND_URL, JWT_KEY }: any = process.env;
 
 export const example = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -71,7 +74,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     token: token,
     name: existingUser.name,
     role: existingUser.role,
-    exp: Date.now() + 1000 * 60 * 60,
+    exp: Date.now() + 1000 * 60 * 59,
   });
 };
 
@@ -135,7 +138,7 @@ export const signUp = async (req: Request, res: Response, next: NextFunction) =>
   }
 
   const message = `
-  Link to verify Account for Nomad Studio  - https://localhost:5000/verifyEmail/${token}
+  Link to verify Account for Nomad Studio  - ${FRONTEND_URL}/verifyEmail/${token}
   `;
   const data = {
     to: email,
@@ -186,7 +189,7 @@ export const sendLinkToVerifiedEmail = async (req: Request, res: Response, next:
   }
 
   const message = `
-  Link to verify Account for Nomad Studio  - https://localhost:5000/verifyEmail/${token}
+  Link to verify Account for Nomad Studio  - ${FRONTEND_URL}/verifyEmail/${token}
   `;
   const data = {
     to: email,
@@ -209,9 +212,38 @@ export const sendLinkToVerifiedEmail = async (req: Request, res: Response, next:
   res.status(200).json({ message: 'We sent verification email to you' });
 };
 
-export const verifyEmail = async (req: Request, res: Response, next: NextFunction) => {
-  // const {userData} = req
-  const userId = '620f8b47078a146053a30c78';
+export const sendContactForm = async (req: Request, res: Response, next: NextFunction) => {
+  const { email, name, text } = req.body;
+  // const email = 'viest1994@gmail.com';
+
+  const message = `
+  Message from our Client (${name}) - ${text}
+  `;
+  const data = {
+    to: 'freelancerwebproject@gmail.com',
+    from: email,
+    subject: `Email From Client`,
+    text: message,
+    html: message.replace(/\r\n/g, '<br>'),
+  };
+
+  try {
+    await sgMail.send(data);
+    console.log('email sent');
+  } catch (e: any) {
+    console.error(e);
+    if (e.response) {
+      console.error(e.response.body);
+    }
+  }
+
+  res.status(200).json({ message: 'We sent verification email to you' });
+};
+
+export const verifyEmail = async (req: userData, res: Response, next: NextFunction) => {
+  const { userId } = req.userData;
+  // const userId = '620f8b47078a146053a30c78';
+  console.log({ userId });
   let existingUser;
   try {
     existingUser = await User.findByIdAndUpdate(userId, { verifiedEmail: true }, { new: true });
@@ -236,7 +268,7 @@ export const verifyEmail = async (req: Request, res: Response, next: NextFunctio
 
   try {
     await sgMail.send(data);
-    console.log('email sent');
+    console.log('email sent correctly');
   } catch (e: any) {
     console.error(e);
     if (e.response) {
@@ -250,8 +282,8 @@ export const verifyEmail = async (req: Request, res: Response, next: NextFunctio
 // Send Email and Reset Password
 
 export const sendLinkToResetPassword = async (req: Request, res: Response, next: NextFunction) => {
-  // const {email} = req.body
-  const email = 'viest1994@gmail.com';
+  const { email } = req.body;
+  // const email = 'viest1994@gmail.com';
   let existingUser;
   try {
     existingUser = await User.findOne({ email });
@@ -275,7 +307,7 @@ export const sendLinkToResetPassword = async (req: Request, res: Response, next:
   }
 
   const message = `
-  Link to reset password for Nomad Studio  - https://localhost:5000/resetPassword/${token}
+  Link to reset password for Nomad Studio  - ${FRONTEND_URL}/forgotPassword/${token}
   `;
   const data = {
     to: email,
@@ -298,11 +330,12 @@ export const sendLinkToResetPassword = async (req: Request, res: Response, next:
   res.status(200).json({ message: 'We sent link to reset password' });
 };
 
-export const setNewPassword = async (req: Request, res: Response, next: NextFunction) => {
-  // const {userData} = req
-  // const {password} = req.body
-  const userId = '620f8b47078a146053a30c78';
-  const password = '1231231';
+export const setNewPassword = async (req: userData, res: Response, next: NextFunction) => {
+  const { userId } = req.userData;
+  const { password } = req.body;
+  // console.log({ userId, password });
+  // const userId = '620f8b47078a146053a30c78';
+  // const password = '1231231';
   let existingUser;
   try {
     existingUser = await User.findById(userId);
@@ -335,19 +368,25 @@ export const setNewPassword = async (req: Request, res: Response, next: NextFunc
 
 // Projects
 
-export const getProjects = async (req: Request, res: Response, next: NextFunction) => {
-  // const userId = req.userData;
+export const getProjects = async (req: userData, res: Response, next: NextFunction) => {
+  // const { userId, role } = req.userData;
+  // let freelancerId: string;
+  // if (role === 'Freelancer') {
+  //   freelancerId = userId;
+  // } else {
+  //   throw next(new HttpError('something wrrong', 500));
+  // }
   const freelancerId = '620e8720dd0a2b6f50f526da';
   let allProjects;
   try {
-    allProjects = await User.find({ _id: freelancerId }).populate('projects');
+    allProjects = await User.findOne({ _id: freelancerId }).populate('projects');
   } catch (e: any) {
     const error = new HttpError(e, 500);
     return next(error);
   }
   if (!allProjects) return next(new HttpError('projects does not exists', 404));
   // res.send({visits: thisCustomer.visits.map((item)=>item.toObject({getters:true}))})
-  res.send({ allProjects });
+  res.send(allProjects.projects);
 };
 
 export const getOneProject = async (req: Request, res: Response, next: NextFunction) => {
@@ -448,19 +487,30 @@ export const addProject = async (req: Request, res: Response, next: NextFunction
 
 // Users (Clients, Freelancers)
 
-export const getClients = async (req: Request, res: Response, next: NextFunction) => {
-  // const userId = req.userData;
-  const freelancerId = '620e8720dd0a2b6f50f526da';
-  let allClients;
+export const getClients = async (req: userData, res: Response, next: NextFunction) => {
+  const { userId, role } = req.userData;
+  let freelancerId: string;
+  if (role === 'Freelancer') {
+    freelancerId = userId;
+  } else {
+    throw next(new HttpError('something wrrong', 500));
+  }
+
+  // const freelancerId = '620e8720dd0a2b6f50f526da';
+  let allClients: any;
   try {
-    allClients = await User.find({ _id: freelancerId }).populate('users');
+    allClients = await User.findOne({ _id: freelancerId }).populate({
+      path: 'users',
+      select: '-password -messages -verifiedEmail -users -freelancers',
+    });
   } catch (e: any) {
     const error = new HttpError(e, 500);
     return next(error);
   }
   if (!allClients) return next(new HttpError('Clients does not exists', 404));
   // res.send({visits: thisCustomer.visits.map((item)=>item.toObject({getters:true}))})
-  res.send({ allClients });
+  // res.send(allClients.clients.projects.map((item: any) => item));
+  res.send(allClients.users);
 };
 
 export const getOneClient = async (req: Request, res: Response, next: NextFunction) => {
@@ -514,10 +564,11 @@ export const deleteOneClient = async (req: Request, res: Response, next: NextFun
 };
 
 export const addClient = async (req: Request, res: Response, next: NextFunction) => {
-  const name = 'John3MyClient';
-  const email = 'John6@gmail.com';
-  const password = '1231231';
-  const freelancerId = '620e8720dd0a2b6f50f526da';
+  const { name, email, password, freelancerId } = req.body;
+  // const name = 'John3MyClient';
+  // const email = 'John6@gmail.com';
+  // const password = '1231231';
+  // const freelancerId = '620e8720dd0a2b6f50f526da';
   let existingUser;
   try {
     existingUser = await User.findOne({ email: email });
@@ -564,12 +615,16 @@ export const addClient = async (req: Request, res: Response, next: NextFunction)
 
 // Messages
 
-export const addMessage = async (req: Request, res: Response, next: NextFunction) => {
-  const text = 'textMessageUser1';
-  // User
-  const userId = '620f7f63b5d3f9af71000654';
+export const addMessage = async (req: userData, res: Response, next: NextFunction) => {
+  const text = 'new Message 😀';
+  // User - Owner message
+  const { userId } = req.userData;
+  // Receiver Message
+  // const { receiverId } = req.body;
+  // const userId = '620f7f63b5d3f9af71000654';
   // Freelancer
-  // const userId = '620e8720dd0a2b6f50f526da';
+  // const receiverId = '62192d9c2e604dba40f3a58b';
+  const receiverId = '62174aab25547950c4d6e6c4';
   let existingUser;
   try {
     existingUser = await User.findById(userId);
@@ -583,16 +638,33 @@ export const addMessage = async (req: Request, res: Response, next: NextFunction
     return next(error);
   }
 
+  let existingReceiver;
+  try {
+    existingReceiver = await User.findById(receiverId);
+  } catch (err) {
+    const error = new HttpError('Something went wrong', 500);
+    return next(error);
+  }
+
+  if (!existingReceiver) {
+    const error = new HttpError('User not exist', 422);
+    return next(error);
+  }
+
   const createdMessage = new Message({
     text,
-    user: userId,
-    name: existingUser.name,
+    creator: userId,
+    receiver: receiverId,
+    nameCreator: existingUser.name,
+    nameReceiver: existingReceiver.name,
   });
 
   try {
     existingUser.messages.push(createdMessage);
+    existingReceiver.messages.push(createdMessage);
     await createdMessage.save();
     await existingUser.save();
+    await existingReceiver.save();
   } catch (err) {
     console.log(err);
     const error = new HttpError('Something went wrong 2.', 500);
@@ -600,6 +672,8 @@ export const addMessage = async (req: Request, res: Response, next: NextFunction
   }
 
   res.status(201).json({ message: 'Message Created Correctly', createdMessage });
+  // EXPERIMENTAL
+  return sendMessagesToMatchedUsers(createdMessage);
 };
 
 export const getMessage = async (req: Request, res: Response, next: NextFunction) => {
@@ -623,3 +697,74 @@ export const getMessage = async (req: Request, res: Response, next: NextFunction
 };
 
 // Billings
+
+// Experiment
+
+let clients: any[] = [];
+let messages: any;
+async function getMessages(id: string) {
+  // const userId = '620f7f63b5d3f9af71000654';
+  // const freelancerId = '620e8720dd0a2b6f50f526da';
+  let allMessages: any;
+  try {
+    allMessages = await User.findOne({ _id: id }).populate('messages');
+  } catch (e: any) {
+    console.log(e);
+  }
+  messages = allMessages.messages;
+  return allMessages.messages;
+}
+
+export async function eventsHandler(req: Request, res: Response, next: NextFunction) {
+  const headers = {
+    'Content-Type': 'text/event-stream',
+    Connection: 'keep-alive',
+    'Cache-Control': 'no-cache',
+    'Access-Control-Allow-Origin': '*',
+  };
+  res.writeHead(200, headers);
+  const token = req.params.token;
+  const decodedToken = (await jwt.verify(token, JWT_KEY)) as DataStoredInToken;
+  if (!decodedToken) throw new HttpError('Something bad happened', 500);
+  const { userId } = decodedToken;
+  await getMessages(userId);
+
+  const data = `data: ${JSON.stringify(messages)}\n\n`;
+  res.write(data);
+  // const clientId = Date.now();
+  // console.log({ res });
+  const newClient = {
+    id: userId,
+    res,
+  };
+
+  clients.push(newClient);
+  req.on('close', () => {
+    console.log(`${userId} Connection closed`);
+    clients = clients.filter((client) => client.id !== userId);
+  });
+}
+
+export function status(req: Request, res: Response, next: NextFunction) {
+  res.json({ clients: clients.map((item) => item.id) });
+}
+
+function sendMessagesToMatchedUsers(newMessage: any) {
+  console.log({ clients });
+  console.log({ newMessage });
+  const clientsFiltered = clients.filter((item) => item.id === newMessage.creator.toString() || item.id === newMessage.receiver.toString());
+  console.log({ clientsFiltered });
+  clientsFiltered.forEach((client) => client.res.write(`data: ${JSON.stringify(newMessage)}\n\n`));
+}
+
+// function sendEventsToAll(newMessage: any) {
+//   clients.forEach((client) => client.res.write(`data: ${JSON.stringify(newMessage)}\n\n`));
+// }
+
+// export async function addFact(req: Request, res: Response, next: NextFunction) {
+//   const newMessage = req.body;
+//   console.log(newMessage);
+//   facts.push(newMessage);
+//   res.json(newMessage);
+//   return sendEventsToAll(newMessage);
+// }

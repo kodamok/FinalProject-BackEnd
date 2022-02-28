@@ -4,13 +4,14 @@ import dotenv from 'dotenv';
 import HttpError from './src/models/httpError';
 import { router as routes } from './src/routes/routes';
 import mongoose from 'mongoose';
+const cors = require('cors');
 
 dotenv.config();
 
 // PORT our application or default port from the backend service
 const PORT = process.env.PORT || 5000;
 const app: Express = express();
-
+app.use(cors());
 // Library which provide 15 middlewares to cover our security
 app.use(helmet());
 // Translate our req.body to json
@@ -20,7 +21,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Role');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE');
   next();
 });
