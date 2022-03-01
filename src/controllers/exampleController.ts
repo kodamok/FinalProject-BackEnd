@@ -487,6 +487,32 @@ export const addProject = async (req: Request, res: Response, next: NextFunction
 
 // Users (Clients, Freelancers)
 
+export const getFreelancers = async (req: userData, res: Response, next: NextFunction) => {
+  const { userId, role } = req.userData;
+  let clientId: string;
+  if (role === 'Client') {
+    clientId = userId;
+  } else {
+    throw next(new HttpError('something wrrong', 500));
+  }
+
+  // const freelancerId = '620e8720dd0a2b6f50f526da';
+  let allFreelancers: any;
+  try {
+    allFreelancers = await User.findOne({ _id: clientId }).populate({
+      path: 'freelancers',
+      select: '-password -messages -verifiedEmail -users',
+    });
+  } catch (e: any) {
+    const error = new HttpError(e, 500);
+    return next(error);
+  }
+  if (!allFreelancers) return next(new HttpError('Freelancers does not exists', 404));
+  // res.send({visits: thisCustomer.visits.map((item)=>item.toObject({getters:true}))})
+  // res.send(allClients.clients.projects.map((item: any) => item));
+  res.send(allFreelancers.freelancers);
+};
+
 export const getClients = async (req: userData, res: Response, next: NextFunction) => {
   const { userId, role } = req.userData;
   let freelancerId: string;
@@ -616,20 +642,20 @@ export const addClient = async (req: Request, res: Response, next: NextFunction)
 // Messages
 
 export const addMessage = async (req: userData, res: Response, next: NextFunction) => {
-  const text = 'new Message 😀11';
+  // const text = 'new Message 😀15';
   // User - Owner message
-  // const { userId } = req.userData;
+  const { userId } = req.userData;
   // Receiver Message
-  // const { receiverId } = req.body;
+  const { receiverId, message } = req.body;
   // John12@gmail.com
-  const userId = '6217d7d302619e4c82dce9d1';
+  // const userId = '6217d7d302619e4c82dce9d1';
   // Freelancer
   // const receiverId = '62192d9c2e604dba40f3a58b';
   // const receiverId = '62174aab25547950c4d6e6c4';
   // Clients John12Gmail.com
   // const receiverId = '621cb6c5bbe612528e95bb96';
   // const receiverId = '621cb6e34b851e3f19ddc4f2';
-  const receiverId = '621cb6e998abd24953dce2d9';
+  // const receiverId = '621cb6e998abd24953dce2d9';
   let existingUser;
   try {
     existingUser = await User.findById(userId);
@@ -657,7 +683,8 @@ export const addMessage = async (req: userData, res: Response, next: NextFunctio
   }
 
   const createdMessage = new Message({
-    text,
+    // TODO change in schema to message
+    text: message,
     creator: userId,
     receiver: receiverId,
     nameCreator: existingUser.name,

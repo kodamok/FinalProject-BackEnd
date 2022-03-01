@@ -20,13 +20,13 @@ import {
   getMessage,
   eventsHandler,
   status,
+  getFreelancers,
 } from '../controllers/exampleController';
 import checkAuth from '../middlewares/checkAuth';
 
 export const router = express.Router();
 
 // Experiment routes
-
 
 router.get('/status', status);
 // router.post('/fact', addFact);
@@ -75,6 +75,8 @@ router.delete('/project/:id', deleteOneProject);
 // GET
 // @ts-ignore
 router.get('/user/freelancer/:freelancerId', getClients);
+// @ts-ignore
+router.get('/user/freelancers/:clientId', getFreelancers);
 router.get('/user/:userId', getOneClient);
 // POST
 router.post('/user', addClient);
