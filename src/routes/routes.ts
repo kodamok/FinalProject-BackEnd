@@ -27,7 +27,6 @@ export const router = express.Router();
 
 // Experiment routes
 
-
 router.get('/status', status);
 // router.post('/fact', addFact);
 

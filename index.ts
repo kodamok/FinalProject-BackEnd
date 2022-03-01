@@ -9,7 +9,7 @@ const cors = require('cors');
 dotenv.config();
 
 // PORT our application or default port from the backend service
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5000 || 3000;
 const app: Express = express();
 app.use(cors());
 // Library which provide 15 middlewares to cover our security
