@@ -35,13 +35,13 @@ export default async (req: userData, res: Response, next: NextFunction) => {
     }
 
     // const token = req.headers.authorization.split(' ')[1];
-    console.log({ token });
+    // console.log({ token });
     // Not necessary ->
     // if (!token) throw new HttpError('Authorization failed! 1', 403);
 
     // Decoding Token
     const decodedToken = (await jwt.verify(token, JWT_KEY)) as DataStoredInToken;
-    console.log({ decodedToken });
+    // console.log({ decodedToken });
 
     // Check if this is asking for verifyEmail
     if (!path.includes('verifyEmail')) {
@@ -49,7 +49,7 @@ export default async (req: userData, res: Response, next: NextFunction) => {
       if (!decodedToken.verifiedEmail) throw new HttpError('Authorization failed! 2', 403);
     }
     req.userData = { userId: decodedToken.userId, role: decodedToken.role, verifiedEmail: decodedToken.verifiedEmail, email: decodedToken.email };
-    console.log({ user: req.userData });
+    // console.log({ user: req.userData });
 
     console.log('middleware Auth4 - Success');
     return next();

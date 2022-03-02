@@ -37,7 +37,6 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     const error = new HttpError('Logging in failed, please try again later.', 500);
     return next(error);
   }
-  console.log(existingUser);
   if (!existingUser) {
     const error = new HttpError('Invalid credentials, could not log you in.', 403);
     return next(error);
@@ -778,10 +777,7 @@ export function status(req: Request, res: Response, next: NextFunction) {
 }
 
 function sendMessagesToMatchedUsers(newMessage: any) {
-  console.log({ clients });
-  console.log({ newMessage });
   const clientsFiltered = clients.filter((item) => item.id === newMessage.creator.toString() || item.id === newMessage.receiver.toString());
-  console.log({ clientsFiltered });
   clientsFiltered.forEach((client) => client.res.write(`data: ${JSON.stringify(newMessage)}\n\n`));
 }
 
