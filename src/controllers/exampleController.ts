@@ -588,8 +588,9 @@ export const deleteOneClient = async (req: Request, res: Response, next: NextFun
   res.send({ message: 'User deleted' });
 };
 
-export const addClient = async (req: Request, res: Response, next: NextFunction) => {
-  const { name, email, password, freelancerId } = req.body;
+export const addClient = async (req: userData, res: Response, next: NextFunction) => {
+  const { name, email, password } = req.body;
+  const { userId } = req.userData;
   // const name = 'John3MyClient';
   // const email = 'John15@gmail.com';
   // const password = '1231231';
@@ -620,12 +621,12 @@ export const addClient = async (req: Request, res: Response, next: NextFunction)
     email,
     password: hashedPassword,
     verifiedEmail: true,
-    freelancers: freelancerId,
+    freelancers: userId,
   });
 
   let existingFreelancer;
   try {
-    existingFreelancer = await User.findById(freelancerId);
+    existingFreelancer = await User.findById(userId);
     existingFreelancer.users.push(createdUser);
     await existingFreelancer.save();
     await createdUser.save();
