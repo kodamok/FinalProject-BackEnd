@@ -79,6 +79,7 @@ router.get('/user/freelancer/:freelancerId', getClients);
 router.get('/user/freelancers/:clientId', getFreelancers);
 router.get('/user/:userId', getOneClient);
 // POST
+// @ts-ignore
 router.post('/user', addClient);
 // PATCH
 router.patch('/user/:id', updateOneClient);
