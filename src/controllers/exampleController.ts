@@ -589,11 +589,11 @@ export const deleteOneClient = async (req: Request, res: Response, next: NextFun
 };
 
 export const addClient = async (req: Request, res: Response, next: NextFunction) => {
-  // const { name, email, password, freelancerId } = req.body;
-  const name = 'John3MyClient';
-  const email = 'John15@gmail.com';
-  const password = '1231231';
-  const freelancerId = '6217d7d302619e4c82dce9d1';
+  const { name, email, password, freelancerId } = req.body;
+  // const name = 'John3MyClient';
+  // const email = 'John15@gmail.com';
+  // const password = '1231231';
+  // const freelancerId = '6217d7d302619e4c82dce9d1';
   let existingUser;
   try {
     existingUser = await User.findOne({ email: email });
