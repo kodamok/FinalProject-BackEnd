@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Application, RequestHandler } from "express";
 import {
   login,
   signUp,
@@ -21,6 +21,8 @@ import {
   eventsHandler,
   status,
   getFreelancers,
+  getStatistics,
+  stopServer
 } from '../controllers/exampleController';
 import checkAuth from '../middlewares/checkAuth';
 
@@ -29,7 +31,6 @@ export const router = express.Router();
 // Experiment routes
 
 router.get('/status', status);
-// router.post('/fact', addFact);
 
 // Routes Login and Signup POST
 router.post('/login', login);
@@ -42,54 +43,48 @@ router.post('/verifyEmail', sendLinkToVerifiedEmail);
 router.post('/resetPassword', sendLinkToResetPassword);
 
 // Middleware (CheckAuth)
+router.use(checkAuth as any);
 
-// @ts-ignore
-router.use(checkAuth);
-
-// @ts-ignore
-router.get('/events/:token', eventsHandler);
+router.get('/events/:token', eventsHandler as any);
+router.get('/stopServer', stopServer as any);
 
 // Email is Verified
-// @ts-ignore
-router.patch('/verifyEmail', verifyEmail);
+router.patch('/verifyEmail', verifyEmail as any);
 
 // Password has been reset
-// @ts-ignore
-router.patch('/resetPassword', setNewPassword);
+router.patch('/resetPassword', setNewPassword as any);
 
 // PROJECT ROUTES
 
 // GET
-// @ts-ignore
-router.get('/project', getProjects);
-router.get('/project/:id', getOneProject);
+router.get('/project', getProjects as any);
+router.get('/project/:projectId', getOneProject);
 // POST
-router.post('/project', addProject);
+router.post('/project', addProject as any);
 // PATCH
-router.patch('/project/:id', updateOneProject);
+router.patch('/project/:projectId', updateOneProject as any);
 // DELETE
-router.delete('/project/:id', deleteOneProject);
+router.delete('/project/:projectId', deleteOneProject as any);
 
 // USER ROUTES
 
 // GET
-// @ts-ignore
-router.get('/user/freelancer/:freelancerId', getClients);
-// @ts-ignore
-router.get('/user/freelancers/:clientId', getFreelancers);
-router.get('/user/:userId', getOneClient);
+router.get('/user/freelancer/:freelancerId', getClients as any);
+router.get('/user/freelancers/:clientId', getFreelancers as any);
+router.get('/user/:clientId', getOneClient);
 // POST
-// @ts-ignore
-router.post('/user', addClient);
+router.post('/user', addClient as any);
 // PATCH
-router.patch('/user/:id', updateOneClient);
+router.patch('/user/:clientId?', updateOneClient as any);
 // DELETE
-router.delete('/user/:id', deleteOneClient);
+router.delete('/user/:clientId', deleteOneClient);
 
 // MESSAGE ROUTES
 
 // GET
 router.get('/message', getMessage);
 // POST
-// @ts-ignore
-router.post('/message', addMessage);
+router.post('/message', addMessage as any);
+
+// Statistics
+router.get('/statistics', getStatistics as any);

@@ -17,15 +17,15 @@ export interface userData extends Request {
 }
 
 export default async (req: userData, res: Response, next: NextFunction) => {
-  console.log('middleware Auth');
-  console.log('reg method?', req.method === 'OPTIONS');
+  // console.log('middleware Auth');
+  // console.log('reg method?', req.method === 'OPTIONS');
   if (req.method === 'OPTIONS') return next();
   const { JWT_KEY } = process.env;
   if (!JWT_KEY) return;
-  console.log('middleware Auth2');
+  // console.log('middleware Auth2');
   const path = req.path.split('/');
   try {
-    console.log('middleware Auth3');
+    // console.log('middleware Auth3');
     // Checking if token exist
     let token: string;
     if (path.length > 2 && path[2].length > 40) {
@@ -51,7 +51,7 @@ export default async (req: userData, res: Response, next: NextFunction) => {
     req.userData = { userId: decodedToken.userId, role: decodedToken.role, verifiedEmail: decodedToken.verifiedEmail, email: decodedToken.email };
     // console.log({ user: req.userData });
 
-    console.log('middleware Auth4 - Success');
+    // console.log('middleware Auth4 - Success');
     return next();
   } catch (err) {
     console.log('middleware Auth5');

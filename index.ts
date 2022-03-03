@@ -43,7 +43,7 @@ app.use((error: HttpError, req: Request, res: Response, next: NextFunction) => {
 const { DB_USER, DB_PASSWORD, DB_NAME } = process.env;
 mongoose
   .connect(`mongodb+srv://${DB_USER}:${DB_PASSWORD}@cluster0.uqusa.mongodb.net/${DB_NAME}`)
-  .then(() => mongoose.set('debug', true))
+  // .then(() => mongoose.set('debug', true))
   .then(() => {
     app.listen(PORT, () => console.log(`We are Connected to Database and we are running server on port ${PORT} ⚡`));
   })

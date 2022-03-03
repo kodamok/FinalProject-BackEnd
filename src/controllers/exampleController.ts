@@ -29,7 +29,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
   const { password, email } = req.body;
   // const email = 'John5@gmail.com';
   // const password = '1231231';
-  console.log('i try backend ');
+  // console.log('i try backend ');
   let existingUser;
   try {
     existingUser = await User.findOne({ email: email });
@@ -60,7 +60,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
   try {
     token = jwt.sign(
       { userId: existingUser.id, email: existingUser.email, role: existingUser.role, verifiedEmail: existingUser.verifiedEmail },
-      `${process.env.JWT_KEY}`,
+      `${JWT_KEY}`,
       { expiresIn: '1h' },
     );
   } catch (err) {
@@ -73,6 +73,8 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     token: token,
     name: existingUser.name,
     role: existingUser.role,
+    identityCardNumber: existingUser.identityCardNumber,
+    taxNumber: existingUser.taxNumber,
     exp: Date.now() + 1000 * 60 * 59,
   });
 };
@@ -128,7 +130,7 @@ export const signUp = async (req: Request, res: Response, next: NextFunction) =>
   try {
     token = jwt.sign(
       { userId: createdUser.id, email: createdUser.email, role: createdUser.role, verifiedEmail: createdUser.verifiedEmail },
-      `${process.env.JWT_KEY}`,
+      `${JWT_KEY}`,
       { expiresIn: '1h' },
     );
   } catch (err) {
@@ -179,7 +181,7 @@ export const sendLinkToVerifiedEmail = async (req: Request, res: Response, next:
   try {
     token = jwt.sign(
       { userId: existingUser.id, email: existingUser.email, role: existingUser.role, verifiedEmail: existingUser.verifiedEmail },
-      `${process.env.JWT_KEY}`,
+      `${JWT_KEY}`,
       { expiresIn: '1h' },
     );
   } catch (err) {
@@ -297,7 +299,7 @@ export const sendLinkToResetPassword = async (req: Request, res: Response, next:
   try {
     token = jwt.sign(
       { userId: existingUser.id, email: existingUser.email, role: existingUser.role, verifiedEmail: existingUser.verifiedEmail },
-      `${process.env.JWT_KEY}`,
+      `${JWT_KEY}`,
       { expiresIn: '1h' },
     );
   } catch (err) {
@@ -368,17 +370,11 @@ export const setNewPassword = async (req: userData, res: Response, next: NextFun
 // Projects
 
 export const getProjects = async (req: userData, res: Response, next: NextFunction) => {
-  const { userId, role } = req.userData;
-  let freelancerId: string;
-  if (role === 'Freelancer') {
-    freelancerId = userId;
-  } else {
-    throw next(new HttpError('something wrrong', 500));
-  }
-  // const freelancerId = '620e8720dd0a2b6f50f526da';
+  const { userId } = req.userData;
+
   let allProjects;
   try {
-    allProjects = await User.findOne({ _id: freelancerId }).populate('projects');
+    allProjects = await User.findById(userId).populate('projects');
   } catch (e: any) {
     const error = new HttpError(e, 500);
     return next(error);
@@ -389,9 +385,9 @@ export const getProjects = async (req: userData, res: Response, next: NextFuncti
 };
 
 export const getOneProject = async (req: Request, res: Response, next: NextFunction) => {
-  // const {projectId} = req.params;
+  const { projectId } = req.params;
   // Example
-  const projectId = '620f5dd5dce3f5afb68ab26e';
+  // const projectId = '620f5dd5dce3f5afb68ab26e';
   let oneProject;
   try {
     oneProject = await Project.findById(projectId);
@@ -404,10 +400,13 @@ export const getOneProject = async (req: Request, res: Response, next: NextFunct
   res.send({ oneProject });
 };
 
-export const updateOneProject = async (req: Request, res: Response, next: NextFunction) => {
-  // const {projectId} = req.params;
+export const updateOneProject = async (req: userData, res: Response, next: NextFunction) => {
+  const { projectId } = req.params;
+  const { role } = req.userData;
+  if (role !== 'Freelancer') return next(new HttpError('not allow', 404));
   // Example
-  const projectId = '620f5dd5dce3f5afb68ab26e';
+  // const projectId = '620f5dd5dce3f5afb68ab26e';
+  // const { ... } = req.body
   const update = {
     name: 'TextUpdated2',
   };
@@ -423,10 +422,12 @@ export const updateOneProject = async (req: Request, res: Response, next: NextFu
   res.send({ message: 'Project Updated', oneProject });
 };
 
-export const deleteOneProject = async (req: Request, res: Response, next: NextFunction) => {
-  // const {projectId} = req.params;
+export const deleteOneProject = async (req: userData, res: Response, next: NextFunction) => {
+  const { projectId } = req.params;
+  const { role } = req.userData;
+  if (role !== 'Freelancer') return next(new HttpError('not allow', 404));
   // Example
-  const projectId = '620f5dd5dce3f5afb68ab26e';
+  // const projectId = '620f5dd5dce3f5afb68ab26e';
   let oneProject;
   try {
     oneProject = await Project.findByIdAndDelete(projectId);
@@ -438,40 +439,49 @@ export const deleteOneProject = async (req: Request, res: Response, next: NextFu
   res.send({ message: 'Project deleted' });
 };
 
-export const addProject = async (req: Request, res: Response, next: NextFunction) => {
-  // interface ProjectInterface {
-  //   name: string;
-  //   clientName: string;
-  //   text: string;
-  // }
+export const addProject = async (req: userData, res: Response, next: NextFunction) => {
+  const { userId, role } = req.userData;
+  let freelancerId: string;
+  if (role === 'Freelancer') {
+    freelancerId = userId;
+  } else {
+    throw next(new HttpError('something wrrong', 500));
+  }
+  const { clientId, text } = req.body;
 
-  // const { freelancerId } = req.userData;
-  // const {
-  // clientId
-  // name
-  // clientName
-  // text
-  // ownerUser
-  // ownerFreelancer
-  // } = req.body;
+  let existingUser;
+  try {
+    existingUser = await User.findById(clientId);
+  } catch (e) {
+    const error = new HttpError('user not exist', 403);
+    return next(error);
+  }
 
-  const clientId = '620e86ee6ea2252da8aa3ff9';
-  const freelancerId = '620e8720dd0a2b6f50f526da';
+  if (!existingUser) return next(new HttpError('something wrong 1', 500));
+
+  let existingFreelancer;
+  try {
+    existingFreelancer = await User.findById(freelancerId);
+  } catch (e) {
+    const error = new HttpError('freelancer not exist', 403);
+    return next(error);
+  }
+
+  if (!existingFreelancer) return next(new HttpError('something wrong 1', 500));
+
+  // const clientId = '620e86ee6ea2252da8aa3ff9';
+  // const freelancerId = '620e8720dd0a2b6f50f526da';
   const newProject = new Project({
-    name: 'Name2',
-    clientName: 'Client Name2',
-    text: 'Text2',
+    text,
+    clientName: existingUser.name,
     ownerUser: clientId,
     ownerFreelancer: freelancerId,
   });
-  let existingUser;
-  let existingFreelancer;
+
   try {
-    // Searching User and push reference to projects
-    existingUser = await User.findById(clientId);
+    // Push reference to projects
     existingUser.projects.push(newProject);
-    // Searching Freelancer and push reference to projects
-    existingFreelancer = await User.findById(freelancerId);
+    // Push reference to projects
     existingFreelancer.projects.push(newProject);
     // Saving Models
     await existingUser.save();
@@ -481,7 +491,7 @@ export const addProject = async (req: Request, res: Response, next: NextFunction
     const error = new HttpError('Something wrong with savings models', 500);
     return next(error);
   }
-  res.send({ message: 'Project created' });
+  res.send({ message: 'Project created', newProject });
 };
 
 // Users (Clients, Freelancers)
@@ -539,12 +549,12 @@ export const getClients = async (req: userData, res: Response, next: NextFunctio
 };
 
 export const getOneClient = async (req: Request, res: Response, next: NextFunction) => {
-  // const {projectId} = req.params;
+  const { clientId } = req.params;
   // Example
-  const clientId = '620e86ee6ea2252da8aa3ff9';
+  // const clientId = '620e86ee6ea2252da8aa3ff9';
   let oneClient;
   try {
-    oneClient = await User.findById(clientId);
+    oneClient = await User.findById(clientId).select('-password, -users, -verifiedEmail');
   } catch (e: any) {
     const error = new HttpError(e, 500);
     return next(error);
@@ -554,29 +564,92 @@ export const getOneClient = async (req: Request, res: Response, next: NextFuncti
   res.send({ oneClient });
 };
 
-export const updateOneClient = async (req: Request, res: Response, next: NextFunction) => {
+export const updateOneClient = async (req: userData, res: Response, next: NextFunction) => {
   // const {projectId} = req.params;
   // Example
-  const clientId = '620e86ee6ea2252da8aa3ff9';
-  const update = {
-    name: 'Tom Riddle',
-  };
-  let oneClient;
+  // const clientId = '620e86ee6ea2252da8aa3ff9';
+  let { userId } = req.userData;
+  if (!req.params.clientId) {
+    userId = userId;
+  } else {
+    userId = req.params.clientId;
+  }
+
+  const { name, email, newPassword, newPasswordRepeated, password, identityCardNumber, taxNumber } = req.body;
+  if (newPassword) {
+    if (newPassword !== newPasswordRepeated) return next(new HttpError('password are not the same', 404));
+    if (newPassword.length < 6) return next(new HttpError('Password must be at least 6 characters', 404));
+  }
+  if (identityCardNumber) {
+    if (identityCardNumber.length < 6) return next(new HttpError('Identity Card Number must be at least 6 characters', 404));
+  }
+  if (taxNumber) {
+    if (taxNumber.length < 6) return next(new HttpError('Tax Number must be at least 6 characters', 404));
+  }
+
+  let existingUser;
   try {
-    oneClient = await User.findByIdAndUpdate(clientId, update, { new: true });
+    existingUser = await User.findById(userId);
+  } catch (err) {
+    const error = new HttpError('Something went wrong, please try again later.', 500);
+    return next(error);
+  }
+  if (!existingUser) {
+    const error = new HttpError('Something went wrong, please try again later. 1', 403);
+    return next(error);
+  }
+
+  let isValidPassword = false;
+  try {
+    isValidPassword = await bcrypt.compare(password, existingUser.password);
+  } catch (err) {
+    const error = new HttpError('Password Not Correct', 500);
+    return next(error);
+  }
+
+  if (!isValidPassword) {
+    const error = new HttpError('Password Not Correct', 403);
+    return next(error);
+  }
+
+  let hashedPassword;
+  if (newPassword) {
+    try {
+      hashedPassword = await bcrypt.hash(newPassword, 12);
+    } catch (err) {
+      const error = new HttpError('Could not create user, please try again 2.', 500);
+      return next(error);
+    }
+  }
+
+  const update = {
+    name,
+    email,
+    password: hashedPassword,
+    identityCardNumber,
+    taxNumber,
+  };
+
+  let updatedClient;
+  try {
+    updatedClient = await User.findByIdAndUpdate(userId, update, { new: true });
   } catch (e: any) {
     const error = new HttpError(e, 500);
     return next(error);
   }
-  if (!oneClient) return next(new HttpError('user does not exist', 404));
   // res.send({visits: thisCustomer.visits.map((item)=>item.toObject({getters:true}))})
-  res.send({ message: 'User Updated', oneClient });
+  res.json({
+    email: updatedClient.email,
+    name: updatedClient.name,
+    identityCardNumber: updatedClient.identityCardNumber,
+    taxNumber: updatedClient.taxNumber,
+  });
 };
 
 export const deleteOneClient = async (req: Request, res: Response, next: NextFunction) => {
-  // const {projectId} = req.params;
+  const { clientId } = req.params;
   // Example
-  const clientId = '620e881461bc96e402778285';
+  // const clientId = '620e881461bc96e402778285';
   let oneClient;
   try {
     oneClient = await User.findByIdAndDelete(clientId);
@@ -591,6 +664,8 @@ export const deleteOneClient = async (req: Request, res: Response, next: NextFun
 export const addClient = async (req: userData, res: Response, next: NextFunction) => {
   const { name, email, password } = req.body;
   const { userId } = req.userData;
+  if (password.length < 6) return next(new HttpError('Password must be at least 6 characters', 404));
+  if (name.length < 3) return next(new HttpError('Name must be at least 3 characters', 404));
   // const name = 'John3MyClient';
   // const email = 'John15@gmail.com';
   // const password = '1231231';
@@ -604,7 +679,7 @@ export const addClient = async (req: userData, res: Response, next: NextFunction
   }
 
   if (existingUser) {
-    const error = new HttpError('User exists already, please login instead.', 422);
+    const error = new HttpError('User exists already', 422);
     return next(error);
   }
 
@@ -708,6 +783,7 @@ export const addMessage = async (req: userData, res: Response, next: NextFunctio
   return sendMessagesToMatchedUsers(createdMessage);
 };
 
+// TODO - NOT USED ON THIS TIME
 export const getMessage = async (req: Request, res: Response, next: NextFunction) => {
   // const userId = req.userData;
   // const {freelancerId} = req.body
@@ -730,10 +806,46 @@ export const getMessage = async (req: Request, res: Response, next: NextFunction
 
 // Billings
 
+// Statistics
+
+export const getStatistics = async (req: userData, res: Response, next: NextFunction) => {
+  const { userId, role } = req.userData;
+  let freelancerId: string;
+  if (role === 'Freelancer') {
+    freelancerId = userId;
+  } else {
+    throw next(new HttpError('something wrrong', 500));
+  }
+  // const freelancerId = '620e8720dd0a2b6f50f526da';
+  let existingUser;
+  try {
+    existingUser = await User.findById(freelancerId);
+  } catch (e: any) {
+    const error = new HttpError(e, 500);
+    return next(error);
+  }
+  if (!existingUser) return next(new HttpError('user does not exists', 404));
+
+  const { messages, projects, users } = existingUser;
+  const allStatistics = {
+    messages: messages.length,
+    projects: projects.length,
+    clients: users.length,
+  };
+
+  // res.send({visits: thisCustomer.visits.map((item)=>item.toObject({getters:true}))})
+  res.send(allStatistics);
+};
+
 // Experiment
 
+export const stopServer = async (req: userData, res: Response, next: NextFunction) => {
+  const { userId } = req.userData;
+  stopServerForClient(userId);
+  res.send({ message: 'Stopped' });
+};
+
 let clients: any[] = [];
-let messages: any;
 async function getMessages(id: string) {
   // const userId = '620f7f63b5d3f9af71000654';
   // const freelancerId = '620e8720dd0a2b6f50f526da';
@@ -743,12 +855,11 @@ async function getMessages(id: string) {
   } catch (e: any) {
     console.log(e);
   }
-  messages = allMessages.messages;
   return allMessages.messages;
 }
 
 export async function eventsHandler(req: userData, res: Response, next: NextFunction) {
-  console.log('Hello Events Handler1');
+  // console.log('Hello Events Handler1');
   const { userId } = req.userData;
   const headers = {
     'Content-Type': 'text/event-stream',
@@ -756,7 +867,7 @@ export async function eventsHandler(req: userData, res: Response, next: NextFunc
     'Cache-Control': 'no-cache',
   };
   res.writeHead(200, headers);
-  await getMessages(userId);
+  const messages = await getMessages(userId);
 
   const data = `data: ${JSON.stringify(messages)}\n\n`;
   res.write(data);
@@ -765,7 +876,7 @@ export async function eventsHandler(req: userData, res: Response, next: NextFunc
     id: userId,
     res,
   };
-
+  console.log('Connection opened ' + userId);
   clients.push(newClient);
   req.on('close', () => {
     console.log(`${userId} Connection closed`);
@@ -774,11 +885,17 @@ export async function eventsHandler(req: userData, res: Response, next: NextFunc
 }
 
 export function status(req: Request, res: Response, next: NextFunction) {
-  res.json({ clients: clients.map((item) => item.id) });
+  res.json({ clients: clients.map((item) => item.id), clientsCount: clients.length });
+}
+
+function stopServerForClient(id: string) {
+  const clientsFiltered = clients.filter((item) => item.id === id);
+  clientsFiltered.forEach((client) => client.res.write(`data: ${JSON.stringify({ text: 'stopSSEEventsNow' })}\n\n`));
 }
 
 function sendMessagesToMatchedUsers(newMessage: any) {
   const clientsFiltered = clients.filter((item) => item.id === newMessage.creator.toString() || item.id === newMessage.receiver.toString());
+  console.log({ clientsFiltered });
   clientsFiltered.forEach((client) => client.res.write(`data: ${JSON.stringify(newMessage)}\n\n`));
 }
 
