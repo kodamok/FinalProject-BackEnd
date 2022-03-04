@@ -1,4 +1,4 @@
-import express, { Application, RequestHandler } from "express";
+import express, { Application, RequestHandler } from 'express';
 import {
   login,
   signUp,
@@ -22,7 +22,8 @@ import {
   status,
   getFreelancers,
   getStatistics,
-  stopServer
+  stopServer,
+  googleLogin,
 } from '../controllers/exampleController';
 import checkAuth from '../middlewares/checkAuth';
 
@@ -35,6 +36,7 @@ router.get('/status', status);
 // Routes Login and Signup POST
 router.post('/login', login);
 router.post('/signup', signUp);
+router.post('/googleLogin', googleLogin);
 
 // Send Verification Email
 router.post('/verifyEmail', sendLinkToVerifiedEmail);

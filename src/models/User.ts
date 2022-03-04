@@ -18,6 +18,8 @@ const userSchema = new Schema(
     phone: String,
     taxNumber: String,
     paymentMethod: String,
+    avatar: String,
+    google: {},
   },
   { timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' } },
 );

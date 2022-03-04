@@ -8,11 +8,227 @@ const bcrypt = require('bcrypt');
 // import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 import { DataStoredInToken, userData } from '../middlewares/checkAuth';
+const { cloudinary } = require('../utils/cloudinary');
+const axios = require('axios');
 const sgMail = require('@sendgrid/mail');
+
 //
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-const { FRONTEND_URL, JWT_KEY }: any = process.env;
+const { FRONTEND_URL, JWT_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET }: any = process.env;
+
+async function getAccessTokenFromCode(code: any) {
+  const { data } = await axios({
+    url: `https://oauth2.googleapis.com/token`,
+    method: 'post',
+    data: {
+      client_id: GOOGLE_CLIENT_ID,
+      client_secret: GOOGLE_CLIENT_SECRET,
+      redirect_uri: FRONTEND_URL,
+      grant_type: 'authorization_code',
+      code,
+    },
+  });
+  console.log({ data }); // { access_token, expires_in, token_type, refresh_token }
+  return data.access_token;
+}
+
+async function getGoogleUserInfo(accessToken: any) {
+  const { data } = await axios({
+    url: 'https://www.googleapis.com/oauth2/v2/userinfo',
+    method: 'get',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  console.log(data); // { id, email, given_name, family_name }
+  return data;
+}
+
+export const googleLogin = async (req: Request, res: Response, next: NextFunction) => {
+  const { code } = req.body;
+  console.log({ code });
+  let data: any;
+  try {
+    const token = await getAccessTokenFromCode(code);
+    data = await getGoogleUserInfo(token);
+    console.log({ token, data });
+    console.log(data.email);
+  } catch (e) {
+    const error = new HttpError('Something wrong', 501);
+    return next(error);
+  }
+
+  let existingUser;
+  try {
+    existingUser = await User.findOne({ email: data.email });
+  } catch (e) {
+    const error = new HttpError('Something wrong', 501);
+    return next(error);
+  }
+
+  if (!existingUser) {
+    let hashedPassword;
+    const randomPassword = (Math.random() * 1000000).toFixed(0);
+    console.log({ randomPassword });
+    try {
+      hashedPassword = await bcrypt.hash(randomPassword, 12);
+    } catch (err) {
+      const error = new HttpError('Something wrong, please try again 4.', 500);
+      return next(error);
+    }
+    console.log(randomPassword);
+
+    const createdUser = new User({
+      name: data.name,
+      email: data.email,
+      password: hashedPassword,
+      verifiedEmail: data.verified_email,
+      role: 'Freelancer',
+      google: {
+        data,
+      },
+    });
+    try {
+      await createdUser.save();
+    } catch (err) {
+      console.log(err);
+      const error = new HttpError('Logging failed, please try again later 3.', 500);
+      return next(error);
+    }
+    if (!createdUser.verifiedEmail) {
+      let token;
+      try {
+        token = jwt.sign(
+          { userId: createdUser.id, email: createdUser.email, role: createdUser.role, verifiedEmail: createdUser.verifiedEmail },
+          `${JWT_KEY}`,
+          { expiresIn: '1h' },
+        );
+      } catch (err) {
+        const error = new HttpError('Signing up failed, please try again later 1.', 500);
+        return next(error);
+      }
+
+      const message = `
+  Link to verify Account for Nomad Studio  - ${FRONTEND_URL}/verifyEmail/${token}
+  `;
+      const data = {
+        to: createdUser.email,
+        from: 'freelancerwebproject@gmail.com',
+        subject: `Link to verify Account - Nomad Studio`,
+        text: message,
+        html: message.replace(/\r\n/g, '<br>'),
+      };
+
+      try {
+        await sgMail.send(data);
+        console.log('email sent');
+      } catch (e: any) {
+        console.error(e);
+        if (e.response) {
+          console.error(e.response.body);
+        }
+      }
+      res.json({ message: 'You need verify email' });
+    }
+    if (createdUser.verifiedEmail) {
+      let token;
+      try {
+        token = jwt.sign(
+          { userId: createdUser.id, email: createdUser.email, role: createdUser.role, verifiedEmail: createdUser.verifiedEmail },
+          `${JWT_KEY}`,
+          { expiresIn: '1h' },
+        );
+      } catch (err) {
+        const error = new HttpError('Something went wrong.', 500);
+        return next(error);
+      }
+      res.json({
+        userId: existingUser.id,
+        email: existingUser.email,
+        token: token,
+        name: existingUser.name,
+        role: existingUser.role,
+        identityCardNumber: existingUser.identityCardNumber,
+        taxNumber: existingUser.taxNumber,
+        avatar: data.picture,
+        exp: Date.now() + 1000 * 60 * 59,
+      });
+    }
+  }
+  if (existingUser) {
+    if (!existingUser?.google?.email) {
+      try {
+        existingUser.google = data;
+        existingUser.save();
+      } catch (e) {
+        const error = new HttpError('Something went wrong.', 500);
+        return next(error);
+      }
+    }
+
+    if (!existingUser.verifiedEmail) {
+      let token;
+      try {
+        token = jwt.sign(
+          { userId: existingUser.id, email: existingUser.email, role: existingUser.role, verifiedEmail: existingUser.verifiedEmail },
+          `${JWT_KEY}`,
+          { expiresIn: '1h' },
+        );
+      } catch (err) {
+        const error = new HttpError('Signing up failed, please try again later 1.', 500);
+        return next(error);
+      }
+
+      const message = `
+  Link to verify Account for Nomad Studio  - ${FRONTEND_URL}/verifyEmail/${token}
+  `;
+      const data = {
+        to: existingUser.email,
+        from: 'freelancerwebproject@gmail.com',
+        subject: `Link to verify Account - Nomad Studio`,
+        text: message,
+        html: message.replace(/\r\n/g, '<br>'),
+      };
+
+      try {
+        await sgMail.send(data);
+        console.log('email sent');
+      } catch (e: any) {
+        console.error(e);
+        if (e.response) {
+          console.error(e.response.body);
+        }
+      }
+      res.json({ message: 'You need verify email' });
+    }
+
+    if (existingUser.verifiedEmail) {
+      let token;
+      try {
+        token = jwt.sign(
+          { userId: existingUser.id, email: existingUser.email, role: existingUser.role, verifiedEmail: existingUser.verifiedEmail },
+          `${JWT_KEY}`,
+          { expiresIn: '1h' },
+        );
+      } catch (err) {
+        const error = new HttpError('Something went wrong.', 500);
+        return next(error);
+      }
+      res.json({
+        userId: existingUser.id,
+        email: existingUser.email,
+        token: token,
+        name: existingUser.name,
+        role: existingUser.role,
+        identityCardNumber: existingUser.identityCardNumber,
+        taxNumber: existingUser.taxNumber,
+        avatar: data.picture,
+        exp: Date.now() + 1000 * 60 * 59,
+      });
+    }
+  }
+};
 
 export const example = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -80,7 +296,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 };
 
 export const signUp = async (req: Request, res: Response, next: NextFunction) => {
-  const { name, email, password, identityCardNumber, taxNumber } = req.body;
+  const { name, email, password, identityCardNumber, taxNumber, image } = req.body;
   // const name = 'John7';
   // const email = 'viest1994@gmail.com';
   // const password = '1231231';
@@ -106,14 +322,31 @@ export const signUp = async (req: Request, res: Response, next: NextFunction) =>
     return next(error);
   }
 
+  let uploadResponse: any;
+  let imageUrl;
+  if (image) {
+    try {
+      uploadResponse = await cloudinary.uploader.upload(image, {
+        quality: 70,
+        upload_preset: 'ml_default',
+      });
+    } catch (e) {
+      console.log(e);
+      const error = new HttpError('something wrong with upload image', 500);
+      return next(error);
+    }
+    imageUrl = uploadResponse.secure_url;
+  }
+
   const createdUser = new User({
     name,
     email: email.toLowerCase(),
     password: hashedPassword,
     verifiedEmail: false,
     role,
-    identityCardNumber,
+    identityCardNumber: identityCardNumber === '' ? undefined : identityCardNumber,
     taxNumber,
+    avatar: imageUrl,
   });
 
   try {
@@ -407,6 +640,31 @@ export const updateOneProject = async (req: userData, res: Response, next: NextF
   // Example
   // const projectId = '620f5dd5dce3f5afb68ab26e';
   // const { ... } = req.body
+
+  // let uploadResponse: any;
+  // if (image) {
+  //   try {
+  //     uploadResponse = await cloudinary.uploader.upload(image, {
+  //       upload_preset: 'ml_default',
+  //     });
+  //   } catch (e) {
+  //     const error = new HttpError('something wrong with upload image', 500);
+  //     return next(error);
+  //   }
+  //   console.log(uploadResponse);
+  //   // if (uploadResponse) {
+  //   //   photoBigSize = uploadResponse.secure_url
+  //   //   const splitted = photoBigSize
+  //   //   const splittedCopy = splitted.split('/')
+  //   //   splittedCopy.splice(6,0,'w_500,q_30')
+  //   //   const splittedCopyJoined = splittedCopy.join('/')
+  //   //   photo = splittedCopyJoined
+  //   // } else {
+  //   //   photo = null;
+  //   //   photoBigSize = null;
+  //   // }
+  // }
+
   const update = {
     name: 'TextUpdated2',
   };
