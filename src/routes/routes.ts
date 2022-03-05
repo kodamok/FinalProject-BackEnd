@@ -24,6 +24,7 @@ import {
   getStatistics,
   stopServer,
   googleLogin,
+  generatePdfRoute,
 } from '../controllers/exampleController';
 import checkAuth from '../middlewares/checkAuth';
 
@@ -31,6 +32,7 @@ export const router = express.Router();
 
 // Experiment routes
 
+router.post('/pdf', generatePdfRoute);
 router.get('/status', status);
 
 // Routes Login and Signup POST

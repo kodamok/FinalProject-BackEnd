@@ -19,6 +19,8 @@ app.use(express.json({ limit: '50mb' }));
 // This allow to read inputs from the form
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+app.use('/static', express.static('src/files'));
+
 app.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');

@@ -3,15 +3,17 @@ import HttpError from '../models/httpError';
 import User from '../models/User';
 import Project from '../models/Project';
 import Message from '../models/Message';
-// import Billing from '../models/Billing';
-const bcrypt = require('bcrypt');
-// import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
-import { DataStoredInToken, userData } from '../middlewares/checkAuth';
-const { cloudinary } = require('../utils/cloudinary');
-const axios = require('axios');
-const sgMail = require('@sendgrid/mail');
+import { userData } from '../middlewares/checkAuth';
+import { generatePdf } from '../utils/generatePdf';
+import { promises as fsPromises } from 'fs';
+import path from 'path';
+import axios from 'axios';
+// import Billing from '../models/Billing';
+import bcrypt from 'bcrypt';
 
+const { cloudinary } = require('../utils/cloudinary');
+const sgMail = require('@sendgrid/mail');
 //
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
@@ -239,6 +241,47 @@ export const example = async (req: Request, res: Response, next: NextFunction) =
   }
 };
 
+export const generatePdfRoute = async (req: Request, res: Response, next: NextFunction) => {
+  // Html Which We want use to generate file
+  const { htmlToDisplay } = req.body;
+  const htmlToInsert = htmlToDisplay || `<div>Hello</div>`;
+
+  // Our Root Folder which we want use to save files
+  const root = 'src/files/';
+
+  // File Name which we will create after converting
+  const nameFile = 'nameClient_Date.';
+  const typeOfFile = 'pdf';
+  const fileWithExtension = nameFile + typeOfFile;
+
+  // Full Name Expected Result Name
+  const expectedFileName = root + fileWithExtension;
+
+  // File which we want convert into pdf/png/jpeg
+  const fileNameHtml = `${Date.now()}.html`;
+
+  // Creating Safe Paths
+  const fileName = path.join(root, fileWithExtension);
+  const pathToFileHtml = path.join(root, fileNameHtml);
+
+  // Checking for possible hackers
+  if (!fileName.startsWith(root.slice(0, 3)) || !pathToFileHtml.startsWith(root.slice(0, 3))) {
+    console.log('trying to sneak out of the web root?');
+    return next(new HttpError('something wrong with download', 404));
+  }
+
+  try {
+    // Saving Html to File
+    await fsPromises.writeFile(pathToFileHtml, htmlToInsert);
+    // Generating File Into (PDF, PNG, JPEG)
+    await generatePdf(typeOfFile, '', fileNameHtml, expectedFileName);
+  } catch (e) {
+    const error = new HttpError('Something wrong with generating File', 501);
+    return next(error);
+  }
+  res.json({ path: 'static/' + fileWithExtension, fileName: fileWithExtension });
+};
+
 // Login/Signup
 
 export const login = async (req: Request, res: Response, next: NextFunction) => {
@@ -384,7 +427,6 @@ export const signUp = async (req: Request, res: Response, next: NextFunction) =>
 
   try {
     await sgMail.send(data);
-    console.log('email sent');
   } catch (e: any) {
     console.error(e);
     if (e.response) {
