@@ -1,4 +1,5 @@
 import express, { Application, RequestHandler } from 'express';
+const multer = require('multer');
 import {
   login,
   signUp,
@@ -25,13 +26,32 @@ import {
   stopServer,
   googleLogin,
   generatePdfRoute,
+  uploadFilesToProject,
+  api_ListFiles,
+  api_deleteFiles,
 } from '../controllers/exampleController';
 import checkAuth from '../middlewares/checkAuth';
+import path from 'path';
+import { handleUploadMiddleware } from '../utils/uploadSetup';
+
+const storage = multer.diskStorage({
+  destination: 'src/files',
+  filename: function (req: any, file: any, cb: any) {
+    cb(null, 'IMAGE-' + Date.now() + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 1000000 },
+});
 
 export const router = express.Router();
 
 // Experiment routes
 
+router.delete('/remove', api_deleteFiles);
+router.get('/list', api_ListFiles);
 router.post('/pdf', generatePdfRoute);
 router.get('/status', status);
 
@@ -64,7 +84,7 @@ router.patch('/resetPassword', setNewPassword as any);
 router.get('/project', getProjects as any);
 router.get('/project/:projectId', getOneProject);
 // POST
-router.post('/project', addProject as any);
+router.post('/project/:clientId', addProject as any);
 // PATCH
 router.patch('/project/:projectId', updateOneProject as any);
 // DELETE
@@ -92,3 +112,6 @@ router.post('/message', addMessage as any);
 
 // Statistics
 router.get('/statistics', getStatistics as any);
+
+// Upload Files
+router.post('/uploadFile/project/:projectId', handleUploadMiddleware.array('files2', 6), uploadFilesToProject as any);

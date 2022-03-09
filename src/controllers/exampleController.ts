@@ -11,6 +11,7 @@ import path from 'path';
 import axios from 'axios';
 // import Billing from '../models/Billing';
 import bcrypt from 'bcrypt';
+import { S3 } from '../utils/uploadSetup';
 
 const { cloudinary } = require('../utils/cloudinary');
 const sgMail = require('@sendgrid/mail');
@@ -18,6 +19,63 @@ const sgMail = require('@sendgrid/mail');
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 const { FRONTEND_URL, JWT_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET }: any = process.env;
+
+export const api_deleteFiles = (req: Request, res: Response) => {
+  const { fileKeys } = req.body;
+  if (!fileKeys || !Array.isArray(fileKeys) || (fileKeys && fileKeys.length == 0)) {
+    res.status(400);
+    return res.json({ error: 'Error! File keys not found.' });
+  }
+  const deleteParam = {
+    Bucket: process.env.AWS_BUCKET_NAME!,
+    Delete: {
+      Objects: fileKeys.map((key: string) => ({ Key: key })),
+    },
+  };
+
+  S3.deleteObjects(deleteParam, function (err, data) {
+    if (err) throw err;
+
+    res.status(200);
+    return res.json({ msg: 'Deleted!' });
+  });
+};
+
+export const api_ListFiles = (req: Request, res: Response) => {
+  // const { folderName } = req.query;
+  const folderName = 'public_asset';
+  if (!folderName) {
+    res.status(400);
+    return res.json({ error: 'Error! Folder name is missing.' });
+  }
+  const listParams = {
+    Bucket: process.env.AWS_BUCKET_NAME!,
+    Prefix: folderName?.toString() || '/',
+  };
+
+  S3.listObjectsV2(listParams, function (err, data) {
+    if (err) throw err;
+    if (data.Contents && data.Contents.length > 0) {
+      const fileObjArr: any[] = [];
+
+      // fileObj: S3.ObjectList
+      data.Contents.forEach((fileObj: any) => {
+        if (fileObj.Size > 0) {
+          fileObjArr.push({
+            ...fileObj,
+            location: `https://${process.env.AWS_BUCKET_NAME}${process.env.AWS_REGION === 'eu-central-1' ? '.' : '-'}s3${
+              process.env.AWS_REGION === 'us-east-1' ? '' : '-' + process.env.AWS_REGION
+            }.amazonaws.com/${fileObj.Key}`,
+          });
+        }
+      });
+      data.Contents = fileObjArr;
+    }
+
+    res.status(200);
+    return res.json({ data });
+  });
+};
 
 async function getAccessTokenFromCode(code: any) {
   const { data } = await axios({
@@ -46,6 +104,61 @@ async function getGoogleUserInfo(accessToken: any) {
   console.log(data); // { id, email, given_name, family_name }
   return data;
 }
+
+export const uploadFilesToProject = async (req: any, res: Response, next: NextFunction) => {
+  // console.log({ req });
+  const { files } = req;
+  const { projectId } = req.params;
+  // const { personId } = req.body;
+  const { userId } = req.userData;
+  if (!files.length) {
+    return next(new HttpError('Something went wrong with uploading file', 500));
+  }
+  if (req.fileValidationError) {
+    return next(new HttpError(req.fileValidationError, 500));
+  }
+
+  const arrWithFilesUrl = [];
+  const arrWithImagesUrl = [];
+  for (const file of files) {
+    console.log(file);
+    if (file.mimetype.startsWith('image')) {
+      arrWithImagesUrl.push({ url: file.location, owner: userId, ext: file.location.split('.').pop(), size: file.size, key: file.key });
+    } else {
+      arrWithFilesUrl.push({ url: file.location, owner: userId, ext: file.location.split('.').pop(), size: file.size, key: file.key });
+    }
+  }
+
+  let oneProject;
+  try {
+    oneProject = await Project.findById(projectId);
+  } catch (e: any) {
+    const error = new HttpError('Something went wrong, try again later', 500);
+    return next(error);
+  }
+
+  if (!oneProject) return next(new HttpError('project does not exist', 404));
+  // let existingUserWhichNotSentThisFiles;
+  // try {
+  //   existingUserWhichNotSentThisFiles = await User.findById(personId);
+  // } catch (e: any) {
+  //   // TODO CHANGE ALL e in httpError to message, because this return objects instead of string and make error on frontend
+  //   const error = new HttpError('Something went wrong, try again later 2', 500);
+  //   return next(error);
+  // }
+  // if (!existingUserWhichNotSentThisFiles) return next(new HttpError('user does not exist', 404));
+
+  try {
+    oneProject.files.push(...arrWithFilesUrl);
+    oneProject.images.push(...arrWithImagesUrl);
+    oneProject.save();
+  } catch (e: any) {
+    const error = new HttpError('Something went wrong, try again later 3', 500);
+    return next(error);
+  }
+
+  res.status(200).json({ message: 'Uploaded correctly into a project' });
+};
 
 export const googleLogin = async (req: Request, res: Response, next: NextFunction) => {
   const { code } = req.body;
@@ -95,7 +208,7 @@ export const googleLogin = async (req: Request, res: Response, next: NextFunctio
       await createdUser.save();
     } catch (err) {
       console.log(err);
-      const error = new HttpError('Logging failed, please try again later 3.', 500);
+      const error = new HttpError('Something went wrong, please try again later 3.', 500);
       return next(error);
     }
     if (!createdUser.verifiedEmail) {
@@ -145,6 +258,30 @@ export const googleLogin = async (req: Request, res: Response, next: NextFunctio
         const error = new HttpError('Something went wrong.', 500);
         return next(error);
       }
+
+      const message = `
+  You created Account in Nomad Studio with Google Account - here we give you also password to manage user information \r\n
+  Keep in safe place or change on website on page Settings \r\n
+  password: ${randomPassword}
+  `;
+      const data = {
+        to: createdUser.email,
+        from: 'freelancerwebproject@gmail.com',
+        subject: `Your password to manage your private data`,
+        text: message,
+        html: message.replace(/\r\n/g, '<br>'),
+      };
+
+      try {
+        await sgMail.send(data);
+        console.log('email sent');
+      } catch (e: any) {
+        console.error(e);
+        if (e.response) {
+          console.error(e.response.body);
+        }
+      }
+
       res.json({
         userId: existingUser.id,
         email: existingUser.email,
@@ -153,7 +290,7 @@ export const googleLogin = async (req: Request, res: Response, next: NextFunctio
         role: existingUser.role,
         identityCardNumber: existingUser.identityCardNumber,
         taxNumber: existingUser.taxNumber,
-        avatar: data.picture,
+        avatar: existingUser.avatar || existingUser.google.picture,
         exp: Date.now() + 1000 * 60 * 59,
       });
     }
@@ -225,7 +362,7 @@ export const googleLogin = async (req: Request, res: Response, next: NextFunctio
         role: existingUser.role,
         identityCardNumber: existingUser.identityCardNumber,
         taxNumber: existingUser.taxNumber,
-        avatar: data.picture,
+        avatar: existingUser.avatar || data.picture,
         exp: Date.now() + 1000 * 60 * 59,
       });
     }
@@ -244,13 +381,14 @@ export const example = async (req: Request, res: Response, next: NextFunction) =
 export const generatePdfRoute = async (req: Request, res: Response, next: NextFunction) => {
   // Html Which We want use to generate file
   const { htmlToDisplay } = req.body;
-  const htmlToInsert = htmlToDisplay || `<div>Hello</div>`;
 
   // Our Root Folder which we want use to save files
   const root = 'src/files/';
 
   // File Name which we will create after converting
-  const nameFile = 'nameClient_Date.';
+  const nameFile = `Generated_PDF_${new Date()
+    .toJSON()
+    .slice(0, 10)}-${new Date().getHours()}'${new Date().getMinutes()}'${new Date().getSeconds()}.`;
   const typeOfFile = 'pdf';
   const fileWithExtension = nameFile + typeOfFile;
 
@@ -272,7 +410,7 @@ export const generatePdfRoute = async (req: Request, res: Response, next: NextFu
 
   try {
     // Saving Html to File
-    await fsPromises.writeFile(pathToFileHtml, htmlToInsert);
+    await fsPromises.writeFile(pathToFileHtml, htmlToDisplay);
     // Generating File Into (PDF, PNG, JPEG)
     await generatePdf(typeOfFile, '', fileNameHtml, expectedFileName);
   } catch (e) {
@@ -334,6 +472,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     role: existingUser.role,
     identityCardNumber: existingUser.identityCardNumber,
     taxNumber: existingUser.taxNumber,
+    avatar: existingUser.avatar,
     exp: Date.now() + 1000 * 60 * 59,
   });
 };
@@ -365,20 +504,23 @@ export const signUp = async (req: Request, res: Response, next: NextFunction) =>
     return next(error);
   }
 
-  let uploadResponse: any;
   let imageUrl;
   if (image) {
     try {
-      uploadResponse = await cloudinary.uploader.upload(image, {
-        quality: 70,
-        upload_preset: 'ml_default',
-      });
+      await cloudinary.uploader
+        .upload(image, {
+          quality: 70,
+          upload_preset: 'ml_default',
+        })
+        .then((result: any) => {
+          console.log({ result });
+          imageUrl = result.secure_url;
+        });
     } catch (e) {
       console.log(e);
       const error = new HttpError('something wrong with upload image', 500);
       return next(error);
     }
-    imageUrl = uploadResponse.secure_url;
   }
 
   const createdUser = new User({
@@ -741,14 +883,14 @@ export const deleteOneProject = async (req: userData, res: Response, next: NextF
 
 export const addProject = async (req: userData, res: Response, next: NextFunction) => {
   const { userId, role } = req.userData;
+  const { clientId } = req.params;
   let freelancerId: string;
   if (role === 'Freelancer') {
     freelancerId = userId;
   } else {
     throw next(new HttpError('something wrrong', 500));
   }
-  const { clientId, text } = req.body;
-
+  const { text } = req.body;
   let existingUser;
   try {
     existingUser = await User.findById(clientId);
@@ -774,11 +916,13 @@ export const addProject = async (req: userData, res: Response, next: NextFunctio
   const newProject = new Project({
     text,
     clientName: existingUser.name,
+    freelancerName: existingFreelancer.name,
     ownerUser: clientId,
     ownerFreelancer: freelancerId,
   });
 
   try {
+    await newProject.save();
     // Push reference to projects
     existingUser.projects.push(newProject);
     // Push reference to projects
@@ -786,7 +930,6 @@ export const addProject = async (req: userData, res: Response, next: NextFunctio
     // Saving Models
     await existingUser.save();
     await existingFreelancer.save();
-    await newProject.save();
   } catch (e) {
     const error = new HttpError('Something wrong with savings models', 500);
     return next(error);
@@ -875,7 +1018,7 @@ export const updateOneClient = async (req: userData, res: Response, next: NextFu
     userId = req.params.clientId;
   }
 
-  const { name, email, newPassword, newPasswordRepeated, password, identityCardNumber, taxNumber } = req.body;
+  const { name, email, newPassword, newPasswordRepeated, password, identityCardNumber, taxNumber, avatar } = req.body;
   if (newPassword) {
     if (newPassword !== newPasswordRepeated) return next(new HttpError('password are not the same', 404));
     if (newPassword.length < 6) return next(new HttpError('Password must be at least 6 characters', 404));
@@ -922,13 +1065,35 @@ export const updateOneClient = async (req: userData, res: Response, next: NextFu
     }
   }
 
+  let imageUrl;
+  if (avatar) {
+    try {
+      await cloudinary.uploader
+        .upload(avatar, {
+          quality: 70,
+          upload_preset: 'ml_default',
+        })
+        .then((result: any) => {
+          console.log({ result });
+          imageUrl = result.secure_url;
+        });
+    } catch (e) {
+      console.log(e);
+      const error = new HttpError('something wrong with upload image', 500);
+      return next(error);
+    }
+  }
+
   const update = {
     name,
     email,
     password: hashedPassword,
     identityCardNumber,
     taxNumber,
+    avatar: imageUrl || existingUser.avatar || existingUser.google.avatar,
   };
+  console.log({ imageUrl });
+  console.log({ update });
 
   let updatedClient;
   try {
@@ -943,6 +1108,7 @@ export const updateOneClient = async (req: userData, res: Response, next: NextFu
     name: updatedClient.name,
     identityCardNumber: updatedClient.identityCardNumber,
     taxNumber: updatedClient.taxNumber,
+    avatar: updatedClient.avatar,
   });
 };
 
