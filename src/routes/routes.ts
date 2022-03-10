@@ -32,7 +32,7 @@ import {
 } from '../controllers/exampleController';
 import checkAuth from '../middlewares/checkAuth';
 import path from 'path';
-import { handleUploadMiddleware } from '../utils/uploadSetup';
+import { handleUploadMiddleware } from '../middlewares/uploadSetup';
 
 const storage = multer.diskStorage({
   destination: 'src/files',

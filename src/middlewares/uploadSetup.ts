@@ -3,7 +3,7 @@ import multer, { FileFilterCallback } from 'multer';
 import multerS3 from 'multer-s3';
 import { Request } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { userData } from '../middlewares/checkAuth';
+import { userData } from './checkAuth';
 
 AWS.config.update({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,

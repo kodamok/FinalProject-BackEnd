@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "copy-files": "copyfiles src/**/*.html src/**/*.css dist/",
-    "build": "rimraf dist && tsc && npm run copy-files",
+    "build": "rimraf dist && tsc",
     "preserve": "npm run build",
     "serve": "cross-env NODE_ENV=development concurrently \"tsc --watch\" \"nodemon -q dist/index.js\"",
     "prestart": "npm run build",

@@ -11,7 +11,7 @@ import path from 'path';
 import axios from 'axios';
 // import Billing from '../models/Billing';
 import bcrypt from 'bcrypt';
-import { S3 } from '../utils/uploadSetup';
+import { S3 } from '../middlewares/uploadSetup';
 
 const { cloudinary } = require('../utils/cloudinary');
 const sgMail = require('@sendgrid/mail');
@@ -386,9 +386,9 @@ export const generatePdfRoute = async (req: Request, res: Response, next: NextFu
   const root = 'src/files/';
 
   // File Name which we will create after converting
-  const nameFile = `Generated_PDF_${new Date()
-    .toJSON()
-    .slice(0, 10)}-${new Date().getHours()}'${new Date().getMinutes()}'${new Date().getSeconds()}.`;
+  const nameFile = `Generated_PDF_${new Date().toJSON().slice(0, 10)}-${new Date().getHours()}'${
+    new Date().getMinutes() < 10 ? `0${new Date().getMinutes()}` : new Date().getMinutes()
+  }'${new Date().getSeconds()}.`;
   const typeOfFile = 'pdf';
   const fileWithExtension = nameFile + typeOfFile;
 
@@ -1332,6 +1332,32 @@ export async function eventsHandler(req: userData, res: Response, next: NextFunc
     Connection: 'keep-alive',
     'Cache-Control': 'no-cache',
   };
+  // let clientToRemoveConnection: any;
+  // const filteredTheSameUserOnManyBrowsers = clients.filter((item) => item.id === userId);
+  // console.log({ filteredTheSameUserOnManyBrowsers: filteredTheSameUserOnManyBrowsers.length });
+  // if (filteredTheSameUserOnManyBrowsers.length > 1) {
+  //   console.log('Hello');
+  //   // console.log(`${userId} Connection closed`);
+  //   console.log('clients before filter', clients);
+  //   const sortedArray = clients.filter((client) => client.id === userId).sort((a, b) => b.createdAt + a.createdAt);
+  //   console.log(sortedArray);
+  //   clientToRemoveConnection = sortedArray[0];
+  //   // console.log(clientToRemoveConnection);
+  //   const newMessage = {
+  //     text: 'stopSSEEventsNow',
+  //   };
+  //   clientToRemoveConnection.res.write(`data: ${JSON.stringify(newMessage)}\n\n`);
+  //   // clients = [...clients.slice(0, clientIndex), ...clients.slice(clientIndex + 1)];
+  //   clients = clients.filter((item) => item.createdAt !== clientToRemoveConnection.createdAt);
+  //   console.log('clients after filter', clients);
+  // }
+
+  // Checking if user is close to have 6 connected account (prevent freezing server, when user open 6 tabs in one browser)
+  const filteredTheSameUserOnManyBrowsers = clients.filter((item) => item.id === userId);
+  if (filteredTheSameUserOnManyBrowsers.length > 4) {
+    stopServerForClient(userId);
+  }
+
   res.writeHead(200, headers);
   const messages = await getMessages(userId);
 
@@ -1340,12 +1366,27 @@ export async function eventsHandler(req: userData, res: Response, next: NextFunc
 
   const newClient = {
     id: userId,
+    createdAt: Date.now(),
     res,
   };
   console.log('Connection opened ' + userId);
   clients.push(newClient);
-  req.on('close', () => {
+  req.on('close', (a: any) => {
+    console.log({ a });
     console.log(`${userId} Connection closed`);
+    // if (clientToRemoveConnection) {
+    //   clients = clients.filter((item) => item.createdAt !== clientToRemoveConnection.createdAt);
+    // } else {
+    //   clients = clients.filter((client) => client.id !== userId);
+    // }
+    // const filteredTheSameUserOnManyBrowsers = clients.filter((item) => item.id === userId);
+    // if (filteredTheSameUserOnManyBrowsers.length > 3) {
+    //   stopServerForClient(userId);
+    // }
+    // console.log(
+    //   'clients inside closing',
+    //   clients.map((item) => ({ id: item.id, time: item.createdAt })),
+    // );
     clients = clients.filter((client) => client.id !== userId);
   });
 }
