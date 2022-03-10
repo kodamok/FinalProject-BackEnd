@@ -81,7 +81,7 @@ router.patch('/resetPassword', setNewPassword as any);
 // PROJECT ROUTES
 
 // GET
-router.get('/project', getProjects as any);
+router.get('/project/:limit?', getProjects as any);
 router.get('/project/:projectId', getOneProject);
 // POST
 router.post('/project/:clientId', addProject as any);
@@ -93,8 +93,8 @@ router.delete('/project/:projectId', deleteOneProject as any);
 // USER ROUTES
 
 // GET
-router.get('/user/freelancer/:freelancerId', getClients as any);
-router.get('/user/freelancers/:clientId', getFreelancers as any);
+router.get('/user/freelancer/:limit?', getClients as any);
+router.get('/user/freelancers', getFreelancers as any);
 router.get('/user/:clientId', getOneClient);
 // POST
 router.post('/user', addClient as any);

@@ -788,15 +788,28 @@ export const setNewPassword = async (req: userData, res: Response, next: NextFun
 
 export const getProjects = async (req: userData, res: Response, next: NextFunction) => {
   const { userId } = req.userData;
+  const { limit } = req.params;
 
   let allProjects;
   try {
-    allProjects = await User.findById(userId).populate('projects');
+    allProjects = await User.findById(userId).populate({
+      path: 'projects',
+      select: '-password -messages -verifiedEmail -users -freelancers',
+      options: { limit: +limit || 0, sort: { updatedAt: -1 } },
+    });
   } catch (e: any) {
-    const error = new HttpError(e, 500);
+    const error = new HttpError('Something went wrong, try again later', 500);
     return next(error);
   }
   if (!allProjects) return next(new HttpError('projects does not exists', 404));
+  // console.log({ allProjects });
+  // let sortedAndLimited;
+  // if (limit) {
+  //   sortedAndLimited = allProjects.projects.sort({ createdAt: 1 }).limit(limit);
+  //   // console.log({ sortedAndLimited });
+  //   res.send(sortedAndLimited);
+  // }
+
   // res.send({visits: thisCustomer.visits.map((item)=>item.toObject({getters:true}))})
   res.send(allProjects.projects);
 };
@@ -890,7 +903,8 @@ export const addProject = async (req: userData, res: Response, next: NextFunctio
   } else {
     throw next(new HttpError('something wrrong', 500));
   }
-  const { text } = req.body;
+  const { companyName, customerName, website, taxNumber, services, name, description, progress, startDate, dueDate, hoursWorked, image } = req.body;
+
   let existingUser;
   try {
     existingUser = await User.findById(clientId);
@@ -909,16 +923,53 @@ export const addProject = async (req: userData, res: Response, next: NextFunctio
     return next(error);
   }
 
-  if (!existingFreelancer) return next(new HttpError('something wrong 1', 500));
+  if (!existingFreelancer) return next(new HttpError('something wrong 2', 500));
 
   // const clientId = '620e86ee6ea2252da8aa3ff9';
   // const freelancerId = '620e8720dd0a2b6f50f526da';
+  // const newProject = new Project({
+  //   text,
+  //   clientName: existingUser.name,
+  //   freelancerName: existingFreelancer.name,
+  //   ownerUser: clientId,
+  //   ownerFreelancer: freelancerId,
+  // });
+
+  let imageUrl;
+  if (image) {
+    try {
+      await cloudinary.uploader
+        .upload(image, {
+          quality: 70,
+          upload_preset: 'ml_default',
+        })
+        .then((result: any) => {
+          console.log({ result });
+          imageUrl = result.secure_url;
+        });
+    } catch (e) {
+      console.log(e);
+      const error = new HttpError('something wrong with upload image', 500);
+      return next(error);
+    }
+  }
+
   const newProject = new Project({
-    text,
-    clientName: existingUser.name,
+    companyName,
+    clientName: customerName,
+    websiteName: website,
+    taxNumber,
+    services,
     freelancerName: existingFreelancer.name,
     ownerUser: clientId,
     ownerFreelancer: freelancerId,
+    name,
+    description,
+    progress,
+    startDate,
+    dueDate,
+    hoursWorked,
+    avatar: imageUrl,
   });
 
   try {
@@ -973,19 +1024,28 @@ export const getClients = async (req: userData, res: Response, next: NextFunctio
   } else {
     throw next(new HttpError('something wrrong', 500));
   }
+  const { limit } = req.params;
 
   // const freelancerId = '620e8720dd0a2b6f50f526da';
   let allClients: any;
   try {
     allClients = await User.findOne({ _id: freelancerId }).populate({
       path: 'users',
-      select: '-password -messages -verifiedEmail -users -freelancers',
+      select: '-password -messages -verifiedEmail -freelancers',
+      options: { limit: +limit || 0, sort: { updatedAt: -1 } },
     });
   } catch (e: any) {
     const error = new HttpError(e, 500);
     return next(error);
   }
   if (!allClients) return next(new HttpError('Clients does not exists', 404));
+
+  // if (limit) {
+  //   const sorted = allClients.users.sort({ createdAt: 1 }).limit(limit);
+  //   console.log({ sorted });
+  //   res.json(sorted);
+  // }
+
   // res.send({visits: thisCustomer.visits.map((item)=>item.toObject({getters:true}))})
   // res.send(allClients.clients.projects.map((item: any) => item));
   res.send(allClients.users);
@@ -1371,8 +1431,7 @@ export async function eventsHandler(req: userData, res: Response, next: NextFunc
   };
   console.log('Connection opened ' + userId);
   clients.push(newClient);
-  req.on('close', (a: any) => {
-    console.log({ a });
+  req.on('close', () => {
     console.log(`${userId} Connection closed`);
     // if (clientToRemoveConnection) {
     //   clients = clients.filter((item) => item.createdAt !== clientToRemoveConnection.createdAt);
