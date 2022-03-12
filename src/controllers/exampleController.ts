@@ -1057,14 +1057,14 @@ export const getOneClient = async (req: Request, res: Response, next: NextFuncti
   // const clientId = '620e86ee6ea2252da8aa3ff9';
   let oneClient;
   try {
-    oneClient = await User.findById(clientId).select('-password, -users, -verifiedEmail');
+    oneClient = await User.findById(clientId).select(['-password', '-verifiedEmail']);
   } catch (e: any) {
     const error = new HttpError(e, 500);
     return next(error);
   }
   if (!oneClient) return next(new HttpError('user does not exist', 404));
   // res.send({visits: thisCustomer.visits.map((item)=>item.toObject({getters:true}))})
-  res.send({ oneClient });
+  res.send(oneClient);
 };
 
 export const updateOneClient = async (req: userData, res: Response, next: NextFunction) => {
