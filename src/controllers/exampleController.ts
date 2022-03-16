@@ -827,44 +827,51 @@ export const getOneProject = async (req: Request, res: Response, next: NextFunct
   }
   if (!oneProject) return next(new HttpError('project does not exist', 404));
   // res.send({visits: thisCustomer.visits.map((item)=>item.toObject({getters:true}))})
-  res.send({ oneProject });
+  res.send(oneProject);
 };
 
 export const updateOneProject = async (req: userData, res: Response, next: NextFunction) => {
   const { projectId } = req.params;
   const { role } = req.userData;
   if (role !== 'Freelancer') return next(new HttpError('not allow', 404));
-  // Example
-  // const projectId = '620f5dd5dce3f5afb68ab26e';
-  // const { ... } = req.body
+  const { avatar, companyName, clientName, websiteName, taxNumber, startDate, dueDate, services, images, files } = req.body;
 
-  // let uploadResponse: any;
-  // if (image) {
-  //   try {
-  //     uploadResponse = await cloudinary.uploader.upload(image, {
-  //       upload_preset: 'ml_default',
-  //     });
-  //   } catch (e) {
-  //     const error = new HttpError('something wrong with upload image', 500);
-  //     return next(error);
-  //   }
-  //   console.log(uploadResponse);
-  //   // if (uploadResponse) {
-  //   //   photoBigSize = uploadResponse.secure_url
-  //   //   const splitted = photoBigSize
-  //   //   const splittedCopy = splitted.split('/')
-  //   //   splittedCopy.splice(6,0,'w_500,q_30')
-  //   //   const splittedCopyJoined = splittedCopy.join('/')
-  //   //   photo = splittedCopyJoined
-  //   // } else {
-  //   //   photo = null;
-  //   //   photoBigSize = null;
-  //   // }
-  // }
+  let imageUrl;
+  if (avatar && !avatar.startsWith('https')) {
+    try {
+      await cloudinary.uploader
+        .upload(avatar, {
+          quality: 70,
+          upload_preset: 'ml_default',
+        })
+        .then((result: any) => {
+          console.log({ result });
+          imageUrl = result.secure_url;
+        });
+    } catch (e) {
+      console.log(e);
+      const error = new HttpError('something wrong with upload image', 500);
+      return next(error);
+    }
+  } else if (avatar && avatar.startsWith('https')) {
+    imageUrl = avatar;
+  }
 
   const update = {
-    name: 'TextUpdated2',
+    companyName,
+    clientName,
+    websiteName,
+    taxNumber,
+    startDate,
+    dueDate,
+    files,
+    images,
+    services,
+    avatar: imageUrl,
   };
+
+  console.log({ update });
+
   let oneProject;
   try {
     oneProject = await Project.findByIdAndUpdate(projectId, update, { new: true });
@@ -1125,8 +1132,10 @@ export const updateOneClient = async (req: userData, res: Response, next: NextFu
     }
   }
 
+  console.log({ avatar });
+
   let imageUrl;
-  if (avatar) {
+  if (avatar && !avatar.startsWith('https')) {
     try {
       await cloudinary.uploader
         .upload(avatar, {
@@ -1142,6 +1151,8 @@ export const updateOneClient = async (req: userData, res: Response, next: NextFu
       const error = new HttpError('something wrong with upload image', 500);
       return next(error);
     }
+  } else if (avatar && avatar.startsWith('https')) {
+    imageUrl = avatar;
   }
 
   const update = {

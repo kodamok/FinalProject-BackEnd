@@ -82,7 +82,7 @@ router.patch('/resetPassword', setNewPassword as any);
 
 // GET
 router.get('/project/:limit?', getProjects as any);
-router.get('/project/:projectId', getOneProject);
+router.get('/projectOne/:projectId', getOneProject);
 // POST
 router.post('/project/:clientId', addProject as any);
 // PATCH
