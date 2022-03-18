@@ -1304,10 +1304,10 @@ export async function eventsHandler(req: userData, res: Response, next: NextFunc
   const messages = await getMessages(userId);
 
   const data = `data: ${JSON.stringify(messages)}\n\n`;
+  res.write(data);
   setInterval(() => {
     res.write(`:\n\n`);
-  }, 3000);
-  res.write(data);
+  }, 50000);
 
   const newClient = {
     id: userId,
