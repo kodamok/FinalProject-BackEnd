@@ -1213,10 +1213,9 @@ export const addMessage = async (req: userData, res: Response, next: NextFunctio
     const error = new HttpError('Something went wrong 2.', 500);
     return next(error);
   }
-
+  sendMessagesToMatchedUsers(createdMessage);
   res.status(201).json({ message: 'Message Created Correctly', createdMessage });
   // EXPERIMENTAL
-  return sendMessagesToMatchedUsers(createdMessage);
 };
 export const getMessage = async (req: Request, res: Response, next: NextFunction) => {
   // const userId = req.userData;
@@ -1257,6 +1256,7 @@ function stopServerForClient(id: string) {
   clientsFiltered.forEach((client) => client.res.write(`data: ${JSON.stringify({ text: 'stopSSEEventsNow' })}\n\n`));
 }
 function sendMessagesToMatchedUsers(newMessage: any) {
+  console.log({ clients });
   const clientsFiltered = clients.filter((item) => item.id === newMessage.creator.toString() || item.id === newMessage.receiver.toString());
   console.log({ clientsFiltered });
   clientsFiltered.forEach((client) => client.res.write(`data: ${JSON.stringify(newMessage)}\n\n`));
@@ -1295,10 +1295,10 @@ export async function eventsHandler(req: userData, res: Response, next: NextFunc
   // }
 
   // Checking if user is close to have 6 connected account (prevent freezing server, when user open 6 tabs in one browser)
-  const filteredTheSameUserOnManyBrowsers = clients.filter((item) => item.id === userId);
-  if (filteredTheSameUserOnManyBrowsers.length > 4) {
-    stopServerForClient(userId);
-  }
+  // const filteredTheSameUserOnManyBrowsers = clients.filter((item) => item.id === userId);
+  // if (filteredTheSameUserOnManyBrowsers.length > 4) {
+  //   stopServerForClient(userId);
+  // }
 
   res.writeHead(200, headers);
   const messages = await getMessages(userId);
@@ -1306,6 +1306,7 @@ export async function eventsHandler(req: userData, res: Response, next: NextFunc
   const data = `data: ${JSON.stringify(messages)}\n\n`;
   res.write(data);
   setInterval(() => {
+    if (res.finished) return;
     res.write(`:\n\n`);
   }, 50000);
 
