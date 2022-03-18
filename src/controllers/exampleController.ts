@@ -1022,7 +1022,7 @@ export const deleteOneClient = async (req: Request, res: Response, next: NextFun
   res.send({ message: 'User deleted' });
 };
 export const addClient = async (req: userData, res: Response, next: NextFunction) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, phone } = req.body;
   const { userId } = req.userData;
   if (password.length < 6) return next(new HttpError('Password must be at least 6 characters', 404));
   if (name.length < 3) return next(new HttpError('Name must be at least 3 characters', 404));
@@ -1055,6 +1055,7 @@ export const addClient = async (req: userData, res: Response, next: NextFunction
     name,
     email,
     password: hashedPassword,
+    phone,
     verifiedEmail: true,
     freelancers: userId,
   });
