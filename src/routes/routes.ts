@@ -1,5 +1,4 @@
-import express, { Application, RequestHandler } from 'express';
-const multer = require('multer');
+import express from 'express';
 import {
   login,
   signUp,
@@ -31,20 +30,20 @@ import {
   api_deleteFiles,
 } from '../controllers/exampleController';
 import checkAuth from '../middlewares/checkAuth';
-import path from 'path';
+// import path from 'path';
 import { handleUploadMiddleware } from '../middlewares/uploadSetup';
 
-const storage = multer.diskStorage({
-  destination: 'src/files',
-  filename: function (req: any, file: any, cb: any) {
-    cb(null, 'IMAGE-' + Date.now() + path.extname(file.originalname));
-  },
-});
-
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 1000000 },
-});
+// const storage = multer.diskStorage({
+//   destination: 'src/files',
+//   filename: function (req: any, file: any, cb: any) {
+//     cb(null, 'IMAGE-' + Date.now() + path.extname(file.originalname));
+//   },
+// });
+//
+// const upload = multer({
+//   storage: storage,
+//   limits: { fileSize: 1000000 },
+// });
 
 export const router = express.Router();
 
@@ -52,8 +51,8 @@ export const router = express.Router();
 
 router.delete('/remove', api_deleteFiles);
 router.get('/list', api_ListFiles);
-router.post('/pdf', generatePdfRoute);
-router.get('/status', status);
+
+// LOGIN, SIGNUP, EMAIL ROUTES --------------------
 
 // Routes Login and Signup POST
 router.post('/login', login);
@@ -66,11 +65,8 @@ router.post('/verifyEmail', sendLinkToVerifiedEmail);
 // Send Email With Link to Reset Password
 router.post('/resetPassword', sendLinkToResetPassword);
 
-// Middleware (CheckAuth)
+// Middleware (CheckAuth) ----------------
 router.use(checkAuth as any);
-
-router.get('/events/:token', eventsHandler as any);
-router.get('/stopServer', stopServer as any);
 
 // Email is Verified
 router.patch('/verifyEmail', verifyEmail as any);
@@ -78,7 +74,7 @@ router.patch('/verifyEmail', verifyEmail as any);
 // Password has been reset
 router.patch('/resetPassword', setNewPassword as any);
 
-// PROJECT ROUTES
+// PROJECT ROUTES -------------
 
 // GET
 router.get('/project/:limit?', getProjects as any);
@@ -90,7 +86,7 @@ router.patch('/project/:projectId', updateOneProject as any);
 // DELETE
 router.delete('/project/:projectId', deleteOneProject as any);
 
-// USER ROUTES
+// USER ROUTES -----------------
 
 // GET
 router.get('/user/freelancer/:limit?', getClients as any);
@@ -103,15 +99,27 @@ router.patch('/user/:clientId?', updateOneClient as any);
 // DELETE
 router.delete('/user/:clientId', deleteOneClient);
 
-// MESSAGE ROUTES
+// MESSAGE ROUTES --------------
 
 // GET
 router.get('/message', getMessage);
+router.get('/status', status);
+router.get('/events/:token', eventsHandler as any);
+router.get('/stopServer', stopServer as any);
 // POST
 router.post('/message', addMessage as any);
 
-// Statistics
+// STATISTICS ROUTES ---------------
+
+// GET
 router.get('/statistics', getStatistics as any);
 
-// Upload Files
+// UPLOAD FILES ROUTES ------------
+
+// POST
 router.post('/uploadFile/project/:projectId', handleUploadMiddleware.array('files2', 6), uploadFilesToProject as any);
+
+// GENERATE PDF ROUTES ----------
+
+// POST
+router.post('/pdf', generatePdfRoute);

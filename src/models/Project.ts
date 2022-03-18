@@ -8,6 +8,7 @@ const projectSchema = new Schema(
     companyName: { type: String },
     clientName: { type: String },
     websiteName: { type: String },
+    freelancerName: String,
     ownerUser: { type: mongoose.Types.ObjectId, required: true, ref: 'user' },
     ownerFreelancer: { type: mongoose.Types.ObjectId, required: true, ref: 'user' },
     description: String,

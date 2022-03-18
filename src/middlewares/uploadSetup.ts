@@ -63,7 +63,7 @@ export const handleUploadMiddleware = multer({
     key: function (req: userData, file: any, cb) {
       const { userId } = req.userData;
       const fileName = getUniqFileName(file.originalname, file.mimetype);
-      const s3_inner_directory = 'public_asset';
+      const s3_inner_directory = process.env.AWS_FOLDER_NAME;
       const finalPath = `${s3_inner_directory}/${userId}uuid-${fileName}`;
       file.userData = userId;
       file.newName = `${userId}uuid-${fileName}`;

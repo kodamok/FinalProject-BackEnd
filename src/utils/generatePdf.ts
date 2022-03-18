@@ -5,10 +5,11 @@ export async function generatePdf(typeOfFile: 'png' | 'jpeg' | 'pdf' | undefined
   try {
     const htmlFilePath = `src/files/${filePath}${fileName}`;
 
-    //    checking file Existency
+    //    checking that file exist
     if (!fs.existsSync(htmlFilePath)) {
       console.log('File does not exist');
     }
+    // If we want add dynamically extension
     // typeOfFile === 'PNG' ? (toBeGenFileName += '.png') : (toBeGenFileName += '.pdf');
 
     const htmlContent = fs.readFileSync(htmlFilePath, 'utf8');
@@ -19,6 +20,7 @@ export async function generatePdf(typeOfFile: 'png' | 'jpeg' | 'pdf' | undefined
       renderDelay: 2000,
     };
 
+    // TODO do we need reject here also?
     return new Promise((resolve) => {
       htmlPdf.create(htmlContent, htmlToPdfOptions).toFile(toBeGenFileName, function (err: any, result: any) {
         if (err) return console.log(err);

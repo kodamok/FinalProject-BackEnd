@@ -1,4 +1,4 @@
-import { Application, NextFunction, Request, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import HttpError from '../models/httpError';
 import User from '../models/User';
 import Project from '../models/Project';
@@ -9,73 +9,14 @@ import { generatePdf } from '../utils/generatePdf';
 import { promises as fsPromises } from 'fs';
 import path from 'path';
 import axios from 'axios';
-// import Billing from '../models/Billing';
 import bcrypt from 'bcrypt';
 import { S3 } from '../middlewares/uploadSetup';
-
 const { cloudinary } = require('../utils/cloudinary');
 const sgMail = require('@sendgrid/mail');
-//
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-
 const { FRONTEND_URL, JWT_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET }: any = process.env;
 
-export const api_deleteFiles = (req: Request, res: Response) => {
-  const { fileKeys } = req.body;
-  if (!fileKeys || !Array.isArray(fileKeys) || (fileKeys && fileKeys.length == 0)) {
-    res.status(400);
-    return res.json({ error: 'Error! File keys not found.' });
-  }
-  const deleteParam = {
-    Bucket: process.env.AWS_BUCKET_NAME!,
-    Delete: {
-      Objects: fileKeys.map((key: string) => ({ Key: key })),
-    },
-  };
-
-  S3.deleteObjects(deleteParam, function (err, data) {
-    if (err) throw err;
-
-    res.status(200);
-    return res.json({ msg: 'Deleted!' });
-  });
-};
-
-export const api_ListFiles = (req: Request, res: Response) => {
-  // const { folderName } = req.query;
-  const folderName = 'public_asset';
-  if (!folderName) {
-    res.status(400);
-    return res.json({ error: 'Error! Folder name is missing.' });
-  }
-  const listParams = {
-    Bucket: process.env.AWS_BUCKET_NAME!,
-    Prefix: folderName?.toString() || '/',
-  };
-
-  S3.listObjectsV2(listParams, function (err, data) {
-    if (err) throw err;
-    if (data.Contents && data.Contents.length > 0) {
-      const fileObjArr: any[] = [];
-
-      // fileObj: S3.ObjectList
-      data.Contents.forEach((fileObj: any) => {
-        if (fileObj.Size > 0) {
-          fileObjArr.push({
-            ...fileObj,
-            location: `https://${process.env.AWS_BUCKET_NAME}${process.env.AWS_REGION === 'eu-central-1' ? '.' : '-'}s3${
-              process.env.AWS_REGION === 'us-east-1' ? '' : '-' + process.env.AWS_REGION
-            }.amazonaws.com/${fileObj.Key}`,
-          });
-        }
-      });
-      data.Contents = fileObjArr;
-    }
-
-    res.status(200);
-    return res.json({ data });
-  });
-};
+// LOGIN GOOGLE
 
 async function getAccessTokenFromCode(code: any) {
   const { data } = await axios({
@@ -92,7 +33,6 @@ async function getAccessTokenFromCode(code: any) {
   console.log({ data }); // { access_token, expires_in, token_type, refresh_token }
   return data.access_token;
 }
-
 async function getGoogleUserInfo(accessToken: any) {
   const { data } = await axios({
     url: 'https://www.googleapis.com/oauth2/v2/userinfo',
@@ -104,62 +44,6 @@ async function getGoogleUserInfo(accessToken: any) {
   console.log(data); // { id, email, given_name, family_name }
   return data;
 }
-
-export const uploadFilesToProject = async (req: any, res: Response, next: NextFunction) => {
-  // console.log({ req });
-  const { files } = req;
-  const { projectId } = req.params;
-  // const { personId } = req.body;
-  const { userId } = req.userData;
-  if (!files.length) {
-    return next(new HttpError('Something went wrong with uploading file', 500));
-  }
-  if (req.fileValidationError) {
-    return next(new HttpError(req.fileValidationError, 500));
-  }
-
-  const arrWithFilesUrl = [];
-  const arrWithImagesUrl = [];
-  for (const file of files) {
-    console.log(file);
-    if (file.mimetype.startsWith('image')) {
-      arrWithImagesUrl.push({ url: file.location, owner: userId, ext: file.location.split('.').pop(), size: file.size, key: file.key });
-    } else {
-      arrWithFilesUrl.push({ url: file.location, owner: userId, ext: file.location.split('.').pop(), size: file.size, key: file.key });
-    }
-  }
-
-  let oneProject;
-  try {
-    oneProject = await Project.findById(projectId);
-  } catch (e: any) {
-    const error = new HttpError('Something went wrong, try again later', 500);
-    return next(error);
-  }
-
-  if (!oneProject) return next(new HttpError('project does not exist', 404));
-  // let existingUserWhichNotSentThisFiles;
-  // try {
-  //   existingUserWhichNotSentThisFiles = await User.findById(personId);
-  // } catch (e: any) {
-  //   // TODO CHANGE ALL e in httpError to message, because this return objects instead of string and make error on frontend
-  //   const error = new HttpError('Something went wrong, try again later 2', 500);
-  //   return next(error);
-  // }
-  // if (!existingUserWhichNotSentThisFiles) return next(new HttpError('user does not exist', 404));
-
-  try {
-    oneProject.files.push(...arrWithFilesUrl);
-    oneProject.images.push(...arrWithImagesUrl);
-    oneProject.save();
-  } catch (e: any) {
-    const error = new HttpError('Something went wrong, try again later 3', 500);
-    return next(error);
-  }
-
-  res.status(200).json({ message: 'Uploaded correctly into a project' });
-};
-
 export const googleLogin = async (req: Request, res: Response, next: NextFunction) => {
   const { code } = req.body;
   console.log({ code });
@@ -369,57 +253,6 @@ export const googleLogin = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
-export const example = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    res.send('<h1>Hello from the TypeScript world!</h1>');
-  } catch (e) {
-    const error = new HttpError('Something wrong', 501);
-    return next(error);
-  }
-};
-
-export const generatePdfRoute = async (req: Request, res: Response, next: NextFunction) => {
-  // Html Which We want use to generate file
-  const { htmlToDisplay } = req.body;
-
-  // Our Root Folder which we want use to save files
-  const root = 'src/files/';
-
-  // File Name which we will create after converting
-  const nameFile = `Generated_PDF_${new Date().toJSON().slice(0, 10)}-${new Date().getHours()}'${
-    new Date().getMinutes() < 10 ? `0${new Date().getMinutes()}` : new Date().getMinutes()
-  }'${new Date().getSeconds()}.`;
-  const typeOfFile = 'pdf';
-  const fileWithExtension = nameFile + typeOfFile;
-
-  // Full Name Expected Result Name
-  const expectedFileName = root + fileWithExtension;
-
-  // File which we want convert into pdf/png/jpeg
-  const fileNameHtml = `${Date.now()}.html`;
-
-  // Creating Safe Paths
-  const fileName = path.join(root, fileWithExtension);
-  const pathToFileHtml = path.join(root, fileNameHtml);
-
-  // Checking for possible hackers
-  if (!fileName.startsWith(root.slice(0, 3)) || !pathToFileHtml.startsWith(root.slice(0, 3))) {
-    console.log('trying to sneak out of the web root?');
-    return next(new HttpError('something wrong with download', 404));
-  }
-
-  try {
-    // Saving Html to File
-    await fsPromises.writeFile(pathToFileHtml, htmlToDisplay);
-    // Generating File Into (PDF, PNG, JPEG)
-    await generatePdf(typeOfFile, '', fileNameHtml, expectedFileName);
-  } catch (e) {
-    const error = new HttpError('Something wrong with generating File', 501);
-    return next(error);
-  }
-  res.json({ path: 'static/' + fileWithExtension, fileName: fileWithExtension });
-};
-
 // Login/Signup
 
 export const login = async (req: Request, res: Response, next: NextFunction) => {
@@ -476,7 +309,6 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     exp: Date.now() + 1000 * 60 * 59,
   });
 };
-
 export const signUp = async (req: Request, res: Response, next: NextFunction) => {
   const { name, email, password, identityCardNumber, taxNumber, image } = req.body;
   // const name = 'John7';
@@ -629,7 +461,6 @@ export const sendLinkToVerifiedEmail = async (req: Request, res: Response, next:
 
   res.status(200).json({ message: 'We sent verification email to you' });
 };
-
 export const sendContactForm = async (req: Request, res: Response, next: NextFunction) => {
   const { email, name, text } = req.body;
   // const email = 'viest1994@gmail.com';
@@ -657,7 +488,6 @@ export const sendContactForm = async (req: Request, res: Response, next: NextFun
 
   res.status(200).json({ message: 'We sent verification email to you' });
 };
-
 export const verifyEmail = async (req: userData, res: Response, next: NextFunction) => {
   const { userId } = req.userData;
   // const userId = '620f8b47078a146053a30c78';
@@ -747,7 +577,6 @@ export const sendLinkToResetPassword = async (req: Request, res: Response, next:
 
   res.status(200).json({ message: 'We sent link to reset password' });
 };
-
 export const setNewPassword = async (req: userData, res: Response, next: NextFunction) => {
   const { userId } = req.userData;
   const { password } = req.body;
@@ -813,7 +642,6 @@ export const getProjects = async (req: userData, res: Response, next: NextFuncti
   // res.send({visits: thisCustomer.visits.map((item)=>item.toObject({getters:true}))})
   res.send(allProjects.projects);
 };
-
 export const getOneProject = async (req: Request, res: Response, next: NextFunction) => {
   const { projectId } = req.params;
   // Example
@@ -829,7 +657,6 @@ export const getOneProject = async (req: Request, res: Response, next: NextFunct
   // res.send({visits: thisCustomer.visits.map((item)=>item.toObject({getters:true}))})
   res.send(oneProject);
 };
-
 export const updateOneProject = async (req: userData, res: Response, next: NextFunction) => {
   const { projectId } = req.params;
   const { role } = req.userData;
@@ -857,6 +684,7 @@ export const updateOneProject = async (req: userData, res: Response, next: NextF
     imageUrl = avatar;
   }
 
+  const servicesWithoutEmptyObjects = services.filter((item: any) => item.description !== '' || item.price !== '' || item.serviceName !== '');
   const update = {
     companyName,
     clientName,
@@ -866,7 +694,7 @@ export const updateOneProject = async (req: userData, res: Response, next: NextF
     dueDate,
     files,
     images,
-    services,
+    services: servicesWithoutEmptyObjects,
     avatar: imageUrl,
   };
 
@@ -883,7 +711,6 @@ export const updateOneProject = async (req: userData, res: Response, next: NextF
   // res.send({visits: thisCustomer.visits.map((item)=>item.toObject({getters:true}))})
   res.send({ message: 'Project Updated', oneProject });
 };
-
 export const deleteOneProject = async (req: userData, res: Response, next: NextFunction) => {
   const { projectId } = req.params;
   const { role } = req.userData;
@@ -900,7 +727,6 @@ export const deleteOneProject = async (req: userData, res: Response, next: NextF
   if (!oneProject) return next(new HttpError('project does not exist', 404));
   res.send({ message: 'Project deleted' });
 };
-
 export const addProject = async (req: userData, res: Response, next: NextFunction) => {
   const { userId, role } = req.userData;
   const { clientId } = req.params;
@@ -961,12 +787,14 @@ export const addProject = async (req: userData, res: Response, next: NextFunctio
     }
   }
 
+  const servicesWithoutEmptyObjects = services.filter((item: any) => item.description !== '' || item.price !== '' || item.serviceName !== '');
+
   const newProject = new Project({
     companyName,
-    clientName: customerName,
+    clientName: customerName || existingUser.name,
     websiteName: website,
     taxNumber,
-    services,
+    services: servicesWithoutEmptyObjects,
     freelancerName: existingFreelancer.name,
     ownerUser: clientId,
     ownerFreelancer: freelancerId,
@@ -1022,7 +850,6 @@ export const getFreelancers = async (req: userData, res: Response, next: NextFun
   // res.send(allClients.clients.projects.map((item: any) => item));
   res.send(allFreelancers.freelancers);
 };
-
 export const getClients = async (req: userData, res: Response, next: NextFunction) => {
   const { userId, role } = req.userData;
   let freelancerId: string;
@@ -1057,7 +884,6 @@ export const getClients = async (req: userData, res: Response, next: NextFunctio
   // res.send(allClients.clients.projects.map((item: any) => item));
   res.send(allClients.users);
 };
-
 export const getOneClient = async (req: Request, res: Response, next: NextFunction) => {
   const { clientId } = req.params;
   // Example
@@ -1073,7 +899,6 @@ export const getOneClient = async (req: Request, res: Response, next: NextFuncti
   // res.send({visits: thisCustomer.visits.map((item)=>item.toObject({getters:true}))})
   res.send(oneClient);
 };
-
 export const updateOneClient = async (req: userData, res: Response, next: NextFunction) => {
   // const {projectId} = req.params;
   // Example
@@ -1182,7 +1007,6 @@ export const updateOneClient = async (req: userData, res: Response, next: NextFu
     avatar: updatedClient.avatar,
   });
 };
-
 export const deleteOneClient = async (req: Request, res: Response, next: NextFunction) => {
   const { clientId } = req.params;
   // Example
@@ -1197,7 +1021,6 @@ export const deleteOneClient = async (req: Request, res: Response, next: NextFun
   if (!oneClient) return next(new HttpError('user does not exist', 404));
   res.send({ message: 'User deleted' });
 };
-
 export const addClient = async (req: userData, res: Response, next: NextFunction) => {
   const { name, email, password } = req.body;
   const { userId } = req.userData;
@@ -1249,6 +1072,81 @@ export const addClient = async (req: userData, res: Response, next: NextFunction
   }
 
   res.status(201).json({ userId: createdUser.id, email: createdUser.email, name: createdUser.name, role: createdUser.role });
+};
+
+// Statistics
+
+export const getStatistics = async (req: userData, res: Response, next: NextFunction) => {
+  const { userId, role } = req.userData;
+  let freelancerId: string;
+  if (role === 'Freelancer') {
+    freelancerId = userId;
+  } else {
+    throw next(new HttpError('something wrrong', 500));
+  }
+  // const freelancerId = '620e8720dd0a2b6f50f526da';
+  let existingUser;
+  try {
+    existingUser = await User.findById(freelancerId);
+  } catch (e: any) {
+    const error = new HttpError(e, 500);
+    return next(error);
+  }
+  if (!existingUser) return next(new HttpError('user does not exists', 404));
+
+  const { messages, projects, users } = existingUser;
+  const allStatistics = {
+    messages: messages.length,
+    projects: projects.length,
+    clients: users.length,
+  };
+
+  // res.send({visits: thisCustomer.visits.map((item)=>item.toObject({getters:true}))})
+  res.send(allStatistics);
+};
+
+// Generating PDF
+
+export const generatePdfRoute = async (req: Request, res: Response, next: NextFunction) => {
+  // Html Which We want use to generate file
+  const { htmlToDisplay } = req.body;
+
+  // Our Root Folder which we want use to save files
+  const root = 'src/files/';
+
+  // File Name which we will create after converting
+  const nameFile = `Generated_PDF_${new Date().toJSON().slice(0, 10)}-${new Date().getHours()}'${
+    new Date().getMinutes() < 10 ? `0${new Date().getMinutes()}` : new Date().getMinutes()
+  }'${new Date().getSeconds()}.`;
+  const typeOfFile = 'pdf';
+  const fileWithExtension = nameFile + typeOfFile;
+
+  // Full Name Expected Result Name
+  const expectedFileName = root + fileWithExtension;
+
+  // File which we want convert into pdf/png/jpeg
+  const fileNameHtml = `${Date.now()}.html`;
+
+  // Creating Safe Paths
+  const fileName = path.join(root, fileWithExtension);
+  const pathToFileHtml = path.join(root, fileNameHtml);
+
+  // Checking for possible hackers
+  if (!fileName.startsWith(root.slice(0, 3)) || !pathToFileHtml.startsWith(root.slice(0, 3))) {
+    console.log('trying to sneak out of the web root?');
+    return next(new HttpError('something wrong with download', 404));
+  }
+
+  try {
+    // Saving Html to File
+    await fsPromises.writeFile(pathToFileHtml, htmlToDisplay);
+    // Generating File Into (PDF, PNG, JPEG)
+    await generatePdf(typeOfFile, '', fileNameHtml, expectedFileName);
+  } catch (e) {
+    const error = new HttpError('Something wrong with generating File', 501);
+    return next(error);
+  }
+  res.json({ path: 'static/' + fileWithExtension, fileName: fileWithExtension });
 };
 
 // Messages
@@ -1319,8 +1217,6 @@ export const addMessage = async (req: userData, res: Response, next: NextFunctio
   // EXPERIMENTAL
   return sendMessagesToMatchedUsers(createdMessage);
 };
-
-// TODO - NOT USED ON THIS TIME
 export const getMessage = async (req: Request, res: Response, next: NextFunction) => {
   // const userId = req.userData;
   // const {freelancerId} = req.body
@@ -1341,46 +1237,7 @@ export const getMessage = async (req: Request, res: Response, next: NextFunction
   res.send({ allMessagesUser, allMessagesFreelancer });
 };
 
-// Billings
-
-// Statistics
-
-export const getStatistics = async (req: userData, res: Response, next: NextFunction) => {
-  const { userId, role } = req.userData;
-  let freelancerId: string;
-  if (role === 'Freelancer') {
-    freelancerId = userId;
-  } else {
-    throw next(new HttpError('something wrrong', 500));
-  }
-  // const freelancerId = '620e8720dd0a2b6f50f526da';
-  let existingUser;
-  try {
-    existingUser = await User.findById(freelancerId);
-  } catch (e: any) {
-    const error = new HttpError(e, 500);
-    return next(error);
-  }
-  if (!existingUser) return next(new HttpError('user does not exists', 404));
-
-  const { messages, projects, users } = existingUser;
-  const allStatistics = {
-    messages: messages.length,
-    projects: projects.length,
-    clients: users.length,
-  };
-
-  // res.send({visits: thisCustomer.visits.map((item)=>item.toObject({getters:true}))})
-  res.send(allStatistics);
-};
-
-// Experiment
-
-export const stopServer = async (req: userData, res: Response, next: NextFunction) => {
-  const { userId } = req.userData;
-  stopServerForClient(userId);
-  res.send({ message: 'Stopped' });
-};
+// Chat Messages - SSE EVENTS
 
 let clients: any[] = [];
 async function getMessages(id: string) {
@@ -1394,7 +1251,20 @@ async function getMessages(id: string) {
   }
   return allMessages.messages;
 }
-
+function stopServerForClient(id: string) {
+  const clientsFiltered = clients.filter((item) => item.id === id);
+  clientsFiltered.forEach((client) => client.res.write(`data: ${JSON.stringify({ text: 'stopSSEEventsNow' })}\n\n`));
+}
+function sendMessagesToMatchedUsers(newMessage: any) {
+  const clientsFiltered = clients.filter((item) => item.id === newMessage.creator.toString() || item.id === newMessage.receiver.toString());
+  console.log({ clientsFiltered });
+  clientsFiltered.forEach((client) => client.res.write(`data: ${JSON.stringify(newMessage)}\n\n`));
+}
+export const stopServer = async (req: userData, res: Response, next: NextFunction) => {
+  const { userId } = req.userData;
+  stopServerForClient(userId);
+  res.send({ message: 'Stopped' });
+};
 export async function eventsHandler(req: userData, res: Response, next: NextFunction) {
   // console.log('Hello Events Handler1');
   const { userId } = req.userData;
@@ -1460,30 +1330,123 @@ export async function eventsHandler(req: userData, res: Response, next: NextFunc
     clients = clients.filter((client) => client.id !== userId);
   });
 }
-
 export function status(req: Request, res: Response, next: NextFunction) {
   res.json({ clients: clients.map((item) => item.id), clientsCount: clients.length });
 }
 
-function stopServerForClient(id: string) {
-  const clientsFiltered = clients.filter((item) => item.id === id);
-  clientsFiltered.forEach((client) => client.res.write(`data: ${JSON.stringify({ text: 'stopSSEEventsNow' })}\n\n`));
-}
-
-function sendMessagesToMatchedUsers(newMessage: any) {
-  const clientsFiltered = clients.filter((item) => item.id === newMessage.creator.toString() || item.id === newMessage.receiver.toString());
-  console.log({ clientsFiltered });
-  clientsFiltered.forEach((client) => client.res.write(`data: ${JSON.stringify(newMessage)}\n\n`));
-}
-
+// MESSAGE TO ALL
 // function sendEventsToAll(newMessage: any) {
 //   clients.forEach((client) => client.res.write(`data: ${JSON.stringify(newMessage)}\n\n`));
 // }
 
-// export async function addFact(req: Request, res: Response, next: NextFunction) {
-//   const newMessage = req.body;
-//   console.log(newMessage);
-//   facts.push(newMessage);
-//   res.json(newMessage);
-//   return sendEventsToAll(newMessage);
-// }
+// AWS S3 Handle CRUD Files
+
+export const uploadFilesToProject = async (req: any, res: Response, next: NextFunction) => {
+  // console.log({ req });
+  const { files } = req;
+  const { projectId } = req.params;
+  // const { personId } = req.body;
+  const { userId } = req.userData;
+  if (!files.length) {
+    return next(new HttpError('Something went wrong with uploading file', 500));
+  }
+  if (req.fileValidationError) {
+    return next(new HttpError(req.fileValidationError, 500));
+  }
+
+  const arrWithFilesUrl = [];
+  const arrWithImagesUrl = [];
+  for (const file of files) {
+    console.log(file);
+    if (file.mimetype.startsWith('image')) {
+      arrWithImagesUrl.push({ url: file.location, owner: userId, ext: file.location.split('.').pop(), size: file.size, key: file.key });
+    } else {
+      arrWithFilesUrl.push({ url: file.location, owner: userId, ext: file.location.split('.').pop(), size: file.size, key: file.key });
+    }
+  }
+
+  let oneProject;
+  try {
+    oneProject = await Project.findById(projectId);
+  } catch (e: any) {
+    const error = new HttpError('Something went wrong, try again later', 500);
+    return next(error);
+  }
+
+  if (!oneProject) return next(new HttpError('project does not exist', 404));
+  // let existingUserWhichNotSentThisFiles;
+  // try {
+  //   existingUserWhichNotSentThisFiles = await User.findById(personId);
+  // } catch (e: any) {
+  //   // TODO CHANGE ALL e in httpError to message, because this return objects instead of string and make error on frontend
+  //   const error = new HttpError('Something went wrong, try again later 2', 500);
+  //   return next(error);
+  // }
+  // if (!existingUserWhichNotSentThisFiles) return next(new HttpError('user does not exist', 404));
+
+  try {
+    oneProject.files.push(...arrWithFilesUrl);
+    oneProject.images.push(...arrWithImagesUrl);
+    oneProject.save();
+  } catch (e: any) {
+    const error = new HttpError('Something went wrong, try again later 3', 500);
+    return next(error);
+  }
+
+  res.status(200).json({ message: 'Uploaded correctly into a project' });
+};
+export const api_deleteFiles = (req: Request, res: Response) => {
+  const { fileKeys } = req.body;
+  if (!fileKeys || !Array.isArray(fileKeys) || (fileKeys && fileKeys.length == 0)) {
+    res.status(400);
+    return res.json({ error: 'Error! File keys not found.' });
+  }
+  const deleteParam = {
+    Bucket: process.env.AWS_BUCKET_NAME!,
+    Delete: {
+      Objects: fileKeys.map((key: string) => ({ Key: key })),
+    },
+  };
+
+  S3.deleteObjects(deleteParam, function (err, data) {
+    if (err) throw err;
+
+    res.status(200);
+    return res.json({ msg: 'Deleted!' });
+  });
+};
+export const api_ListFiles = (req: Request, res: Response) => {
+  // const { folderName } = req.query;
+  const folderName = 'public_asset';
+  if (!folderName) {
+    res.status(400);
+    return res.json({ error: 'Error! Folder name is missing.' });
+  }
+  const listParams = {
+    Bucket: process.env.AWS_BUCKET_NAME!,
+    Prefix: folderName?.toString() || '/',
+  };
+
+  S3.listObjectsV2(listParams, function (err, data) {
+    if (err) throw err;
+    if (data.Contents && data.Contents.length > 0) {
+      const fileObjArr: any[] = [];
+
+      // fileObj: S3.ObjectList
+      data.Contents.forEach((fileObj: any) => {
+        if (fileObj.Size > 0) {
+          fileObjArr.push({
+            ...fileObj,
+            location: `https://${process.env.AWS_BUCKET_NAME}${process.env.AWS_REGION === 'eu-central-1' ? '.' : '-'}s3${
+              process.env.AWS_REGION === 'us-east-1' ? '' : '-' + process.env.AWS_REGION
+            }.amazonaws.com/${fileObj.Key}`,
+          });
+        }
+      });
+      data.Contents = fileObjArr;
+    }
+
+    res.status(200);
+    return res.json({ data });
+  });
+};
