@@ -53,11 +53,13 @@ const getUniqFileName = (originalname: string, mimetype: string) => {
   return `${name}.${ext === 'blob' ? mimetype.split('/').pop() : ext}`;
 };
 
+console.log('bucket Name', process.env.AWS_BUCKET_NAME);
+
 export const handleUploadMiddleware = multer({
   fileFilter,
   storage: multerS3({
     s3: S3,
-    bucket: process.env.AWS_BUCKET_NAME!,
+    bucket: 'alpacafinalproject',
     acl: 'public-read',
     contentType: multerS3.AUTO_CONTENT_TYPE,
     key: function (req: userData, file: any, cb) {
