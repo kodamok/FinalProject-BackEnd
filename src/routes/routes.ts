@@ -31,64 +31,26 @@ import {
   sendEmailFromContactForm,
 } from '../controllers/exampleController';
 import checkAuth from '../middlewares/checkAuth';
-// import path from 'path';
 import { handleUploadMiddleware } from '../middlewares/uploadSetup';
-
-// const storage = multer.diskStorage({
-//   destination: 'src/files',
-//   filename: function (req: any, file: any, cb: any) {
-//     cb(null, 'IMAGE-' + Date.now() + path.extname(file.originalname));
-//   },
-// });
-//
-// const upload = multer({
-//   storage: storage,
-//   limits: { fileSize: 1000000 },
-// });
 
 export const router = express.Router();
 
-// Experiment routes
-
-router.delete('/remove', api_deleteFiles);
-router.get('/list', api_ListFiles);
-
 // LOGIN, SIGNUP, EMAIL ROUTES --------------------
 
-// Routes Login and Signup POST
+// POST
 router.post('/login', login);
 router.post('/signup', signUp);
 router.post('/googleLogin', googleLogin);
-
-// Send Verification Email
 router.post('/verifyEmail', sendLinkToVerifiedEmail);
-
-// Send Email With Link to Reset Password
 router.post('/resetPassword', sendLinkToResetPassword);
-
-// Send email from Contact Form
 router.post('/contactForm', sendEmailFromContactForm);
 
 // Middleware (CheckAuth) ----------------
 router.use(checkAuth as any);
 
-// Email is Verified
-router.patch('/verifyEmail', verifyEmail as any);
-
-// Password has been reset
-router.patch('/resetPassword', setNewPassword as any);
-
-// PROJECT ROUTES -------------
-
-// GET
-router.get('/project/:limit?', getProjects as any);
-router.get('/projectOne/:projectId', getOneProject);
-// POST
-router.post('/project/:clientId', addProject as any);
 // PATCH
-router.patch('/project/:projectId', updateOneProject as any);
-// DELETE
-router.delete('/project/:projectId', deleteOneProject as any);
+router.patch('/verifyEmail', verifyEmail as any);
+router.patch('/resetPassword', setNewPassword as any);
 
 // USER ROUTES -----------------
 
@@ -103,7 +65,20 @@ router.patch('/user/:clientId?', updateOneClient as any);
 // DELETE
 router.delete('/user/:clientId', deleteOneClient);
 
-// MESSAGE ROUTES --------------
+// PROJECT ROUTES ----------------------
+
+// GET
+router.get('/project/:limit?', getProjects as any);
+router.get('/projectOne/:projectId', getOneProject);
+// POST
+router.post('/project/:clientId', addProject as any);
+router.post('/uploadFile/project/:projectId', handleUploadMiddleware.array('files2', 6), uploadFilesToProject as any);
+// PATCH
+router.patch('/project/:projectId', updateOneProject as any);
+// DELETE
+router.delete('/project/:projectId', deleteOneProject as any);
+
+// MESSAGE/CHAT ROUTES --------------
 
 // GET
 router.get('/message', getMessage);
@@ -114,16 +89,14 @@ router.get('/stopServer', stopServer as any);
 router.post('/message', addMessage as any);
 
 // STATISTICS ROUTES ---------------
-
 // GET
 router.get('/statistics', getStatistics as any);
 
-// UPLOAD FILES ROUTES ------------
-
-// POST
-router.post('/uploadFile/project/:projectId', handleUploadMiddleware.array('files2', 6), uploadFilesToProject as any);
-
 // GENERATE PDF ROUTES ----------
-
 // POST
 router.post('/pdf', generatePdfRoute);
+
+// Experiment routes
+
+router.delete('/remove', api_deleteFiles);
+router.get('/list', api_ListFiles);

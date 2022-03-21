@@ -11,6 +11,8 @@ import path from 'path';
 import axios from 'axios';
 import bcrypt from 'bcrypt';
 import { S3 } from '../middlewares/uploadSetup';
+import { verifyEmailTemplate } from '../utils/verifyEmailTemplateHtml';
+import { newPasswordEmailTemplate } from '../utils/newPasswordTemplateHtml';
 const { cloudinary } = require('../utils/cloudinary');
 const sgMail = require('@sendgrid/mail');
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -108,15 +110,16 @@ export const googleLogin = async (req: Request, res: Response, next: NextFunctio
         return next(error);
       }
 
+      const linkToVerify = `${FRONTEND_URL}/verifyEmail/${token}`;
       const message = `
-  Link to verify Account for Nomad Studio  - ${FRONTEND_URL}/verifyEmail/${token}
+  Link to verify Account for Nomad Studio  - ${linkToVerify}
   `;
       const data = {
         to: createdUser.email,
         from: 'freelancerwebproject@gmail.com',
         subject: `Link to verify Account - Nomad Studio`,
         text: message,
-        html: message.replace(/\r\n/g, '<br>'),
+        html: verifyEmailTemplate(linkToVerify),
       };
 
       try {
@@ -202,16 +205,16 @@ export const googleLogin = async (req: Request, res: Response, next: NextFunctio
         const error = new HttpError('Signing up failed, please try again later 1.', 500);
         return next(error);
       }
-
+      const linkToVerify = `${FRONTEND_URL}/verifyEmail/${token}`;
       const message = `
-  Link to verify Account for Nomad Studio  - ${FRONTEND_URL}/verifyEmail/${token}
+  Link to verify Account for Nomad Studio  - ${linkToVerify}
   `;
       const data = {
         to: existingUser.email,
         from: 'freelancerwebproject@gmail.com',
         subject: `Link to verify Account - Nomad Studio`,
         text: message,
-        html: message.replace(/\r\n/g, '<br>'),
+        html: verifyEmailTemplate(linkToVerify),
       };
 
       try {
@@ -387,16 +390,18 @@ export const signUp = async (req: Request, res: Response, next: NextFunction) =>
     const error = new HttpError('Signing up failed, please try again later 1.', 500);
     return next(error);
   }
-
+  const linkToVerify = `${FRONTEND_URL}/verifyEmail/${token}`;
   const message = `
-  Link to verify Account for Nomad Studio  - ${FRONTEND_URL}/verifyEmail/${token}
+  Link to verify Account for Nomad Studio  - ${linkToVerify}
   `;
+
   const data = {
     to: email,
     from: 'freelancerwebproject@gmail.com',
     subject: `Link to verify Account - Nomad Studio`,
     text: message,
-    html: message.replace(/\r\n/g, '<br>'),
+    // html: message.replace(/\r\n/g, '<br>'),
+    html: verifyEmailTemplate(linkToVerify),
   };
 
   try {
@@ -438,15 +443,18 @@ export const sendLinkToVerifiedEmail = async (req: Request, res: Response, next:
     return next(error);
   }
 
+  const linkToVerify = `${FRONTEND_URL}/verifyEmail/${token}`;
   const message = `
-  Link to verify Account for Nomad Studio  - ${FRONTEND_URL}/verifyEmail/${token}
+  Link to verify Account for Nomad Studio  - ${linkToVerify}
   `;
+
   const data = {
     to: email,
     from: 'freelancerwebproject@gmail.com',
-    subject: `Link to verify Account - Nomad Studio`,
+    subject: `Confirm Your Email - Nomad Studio`,
     text: message,
-    html: message.replace(/\r\n/g, '<br>'),
+    // html: message.replace(/\r\n/g, '<br>'),
+    html: verifyEmailTemplate(linkToVerify),
   };
 
   try {
@@ -502,28 +510,6 @@ export const verifyEmail = async (req: userData, res: Response, next: NextFuncti
 
   if (!existingUser) return next(new HttpError('something wrong 1', 500));
 
-  const message = `
-  Your Account is Verified - Nomad Studio
-  `;
-
-  const data = {
-    to: existingUser.email,
-    from: 'freelancerwebproject@gmail.com',
-    subject: `Your Account is Verified - Nomad Studio`,
-    text: message,
-    html: message.replace(/\r\n/g, '<br>'),
-  };
-
-  try {
-    await sgMail.send(data);
-    console.log('email sent correctly');
-  } catch (e: any) {
-    console.error(e);
-    if (e.response) {
-      console.error(e.response.body);
-    }
-  }
-
   res.status(200).json({ message: 'You Verified Email Correct. Now Log in!' });
 };
 
@@ -553,16 +539,16 @@ export const sendLinkToResetPassword = async (req: Request, res: Response, next:
     const error = new HttpError('Signing up failed, please try again later 1.', 500);
     return next(error);
   }
-
+  const linkToVerify = `${FRONTEND_URL}/forgotPassword/${token}`;
   const message = `
-  Link to reset password for Nomad Studio  - ${FRONTEND_URL}/forgotPassword/${token}
+  Link to reset password for Nomad Studio  - ${linkToVerify}
   `;
   const data = {
     to: email,
     from: 'freelancerwebproject@gmail.com',
     subject: `Link to reset password - Nomad Studio`,
     text: message,
-    html: message.replace(/\r\n/g, '<br>'),
+    html: newPasswordEmailTemplate(linkToVerify),
   };
 
   try {
@@ -856,6 +842,60 @@ export const addProject = async (req: userData, res: Response, next: NextFunctio
   }
   res.send({ message: 'Project created', newProject });
 };
+export const uploadFilesToProject = async (req: any, res: Response, next: NextFunction) => {
+  // console.log({ req });
+  const { files } = req;
+  const { projectId } = req.params;
+  // const { personId } = req.body;
+  const { userId } = req.userData;
+  if (!files.length) {
+    return next(new HttpError('Something went wrong with uploading file', 500));
+  }
+  if (req.fileValidationError) {
+    return next(new HttpError(req.fileValidationError, 500));
+  }
+
+  const arrWithFilesUrl = [];
+  const arrWithImagesUrl = [];
+  for (const file of files) {
+    console.log(file);
+    if (file.mimetype.startsWith('image')) {
+      arrWithImagesUrl.push({ url: file.location, owner: userId, ext: file.location.split('.').pop(), size: file.size, key: file.key });
+    } else {
+      arrWithFilesUrl.push({ url: file.location, owner: userId, ext: file.location.split('.').pop(), size: file.size, key: file.key });
+    }
+  }
+
+  let oneProject;
+  try {
+    oneProject = await Project.findById(projectId);
+  } catch (e: any) {
+    const error = new HttpError('Something went wrong, try again later', 500);
+    return next(error);
+  }
+
+  if (!oneProject) return next(new HttpError('project does not exist', 404));
+  // let existingUserWhichNotSentThisFiles;
+  // try {
+  //   existingUserWhichNotSentThisFiles = await User.findById(personId);
+  // } catch (e: any) {
+  //   // TODO CHANGE ALL e in httpError to message, because this return objects instead of string and make error on frontend
+  //   const error = new HttpError('Something went wrong, try again later 2', 500);
+  //   return next(error);
+  // }
+  // if (!existingUserWhichNotSentThisFiles) return next(new HttpError('user does not exist', 404));
+
+  try {
+    oneProject.files.push(...arrWithFilesUrl);
+    oneProject.images.push(...arrWithImagesUrl);
+    oneProject.save();
+  } catch (e: any) {
+    const error = new HttpError('Something went wrong, try again later 3', 500);
+    return next(error);
+  }
+
+  res.status(200).json({ message: 'Uploaded correctly into a project' });
+}; // Only Upload Files
 
 // Users (Clients, Freelancers)
 
@@ -1184,7 +1224,7 @@ export const generatePdfRoute = async (req: Request, res: Response, next: NextFu
   res.json({ path: 'static/' + fileWithExtension, fileName: fileWithExtension });
 };
 
-// Messages
+// Chat Messages
 
 export const addMessage = async (req: userData, res: Response, next: NextFunction) => {
   // const text = 'new Message 😀15';
@@ -1380,60 +1420,6 @@ export function status(req: Request, res: Response, next: NextFunction) {
 
 // AWS S3 Handle CRUD Files
 
-export const uploadFilesToProject = async (req: any, res: Response, next: NextFunction) => {
-  // console.log({ req });
-  const { files } = req;
-  const { projectId } = req.params;
-  // const { personId } = req.body;
-  const { userId } = req.userData;
-  if (!files.length) {
-    return next(new HttpError('Something went wrong with uploading file', 500));
-  }
-  if (req.fileValidationError) {
-    return next(new HttpError(req.fileValidationError, 500));
-  }
-
-  const arrWithFilesUrl = [];
-  const arrWithImagesUrl = [];
-  for (const file of files) {
-    console.log(file);
-    if (file.mimetype.startsWith('image')) {
-      arrWithImagesUrl.push({ url: file.location, owner: userId, ext: file.location.split('.').pop(), size: file.size, key: file.key });
-    } else {
-      arrWithFilesUrl.push({ url: file.location, owner: userId, ext: file.location.split('.').pop(), size: file.size, key: file.key });
-    }
-  }
-
-  let oneProject;
-  try {
-    oneProject = await Project.findById(projectId);
-  } catch (e: any) {
-    const error = new HttpError('Something went wrong, try again later', 500);
-    return next(error);
-  }
-
-  if (!oneProject) return next(new HttpError('project does not exist', 404));
-  // let existingUserWhichNotSentThisFiles;
-  // try {
-  //   existingUserWhichNotSentThisFiles = await User.findById(personId);
-  // } catch (e: any) {
-  //   // TODO CHANGE ALL e in httpError to message, because this return objects instead of string and make error on frontend
-  //   const error = new HttpError('Something went wrong, try again later 2', 500);
-  //   return next(error);
-  // }
-  // if (!existingUserWhichNotSentThisFiles) return next(new HttpError('user does not exist', 404));
-
-  try {
-    oneProject.files.push(...arrWithFilesUrl);
-    oneProject.images.push(...arrWithImagesUrl);
-    oneProject.save();
-  } catch (e: any) {
-    const error = new HttpError('Something went wrong, try again later 3', 500);
-    return next(error);
-  }
-
-  res.status(200).json({ message: 'Uploaded correctly into a project' });
-};
 export const api_deleteFiles = (req: Request, res: Response) => {
   const { fileKeys } = req.body;
   if (!fileKeys || !Array.isArray(fileKeys) || (fileKeys && fileKeys.length == 0)) {
