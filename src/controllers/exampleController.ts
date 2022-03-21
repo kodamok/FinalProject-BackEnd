@@ -613,6 +613,38 @@ export const setNewPassword = async (req: userData, res: Response, next: NextFun
   res.status(200).json({ message: 'You Changed Password Correctly. Now you Can Log in!' });
 };
 
+// Send Email from Contact Form
+
+export const sendEmailFromContactForm = async (req: Request, res: Response, next: NextFunction) => {
+  const { email, name, message } = req.body;
+
+  const messageText = `
+  Message from Nomad Studio Contact Form - \r\n
+  Email: ${email} \r\n
+  Name: ${name} \r\n
+  Message: ${message}
+  `;
+  const data = {
+    to: 'freelancerwebproject@gmail.com',
+    from: 'freelancerwebproject@gmail.com',
+    subject: `Contact Form Nomad Studio - Message`,
+    text: messageText,
+    html: messageText.replace(/\r\n/g, '<br>'),
+  };
+
+  try {
+    await sgMail.send(data);
+    console.log('email sent');
+  } catch (e: any) {
+    console.error(e);
+    if (e.response) {
+      console.error(e.response.body);
+    }
+  }
+
+  res.status(200).json({ message: 'We sent message' });
+};
+
 // Projects
 
 export const getProjects = async (req: userData, res: Response, next: NextFunction) => {
@@ -646,10 +678,12 @@ export const getOneProject = async (req: Request, res: Response, next: NextFunct
   const { projectId } = req.params;
   // Example
   // const projectId = '620f5dd5dce3f5afb68ab26e';
+  console.log({ projectId });
   let oneProject;
   try {
     oneProject = await Project.findById(projectId);
   } catch (e: any) {
+    console.log(e);
     const error = new HttpError(e, 500);
     return next(error);
   }

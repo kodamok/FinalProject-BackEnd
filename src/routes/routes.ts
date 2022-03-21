@@ -28,6 +28,7 @@ import {
   uploadFilesToProject,
   api_ListFiles,
   api_deleteFiles,
+  sendEmailFromContactForm,
 } from '../controllers/exampleController';
 import checkAuth from '../middlewares/checkAuth';
 // import path from 'path';
@@ -64,6 +65,9 @@ router.post('/verifyEmail', sendLinkToVerifiedEmail);
 
 // Send Email With Link to Reset Password
 router.post('/resetPassword', sendLinkToResetPassword);
+
+// Send email from Contact Form
+router.post('/contactForm', sendEmailFromContactForm);
 
 // Middleware (CheckAuth) ----------------
 router.use(checkAuth as any);
