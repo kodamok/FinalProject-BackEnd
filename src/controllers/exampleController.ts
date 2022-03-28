@@ -86,9 +86,7 @@ export const googleLogin = async (req: Request, res: Response, next: NextFunctio
       password: hashedPassword,
       verifiedEmail: data.verified_email,
       role: 'Freelancer',
-      google: {
-        data,
-      },
+      google: data,
     });
     try {
       await createdUser.save();
@@ -151,7 +149,7 @@ export const googleLogin = async (req: Request, res: Response, next: NextFunctio
   Keep in safe place or change on website on page Settings \r\n
   password: ${randomPassword}
   `;
-      const data = {
+      const dataMessage = {
         to: createdUser.email,
         from: 'freelancerwebproject@gmail.com',
         subject: `Your password to manage your private data`,
@@ -160,7 +158,7 @@ export const googleLogin = async (req: Request, res: Response, next: NextFunctio
       };
 
       try {
-        await sgMail.send(data);
+        await sgMail.send(dataMessage);
         console.log('email sent');
       } catch (e: any) {
         console.error(e);
@@ -169,15 +167,17 @@ export const googleLogin = async (req: Request, res: Response, next: NextFunctio
         }
       }
 
+      console.log('existing,', createdUser);
+
       res.json({
-        userId: existingUser.id,
-        email: existingUser.email,
+        userId: createdUser.id,
+        email: createdUser.email,
         token: token,
-        name: existingUser.name,
-        role: existingUser.role,
-        identityCardNumber: existingUser.identityCardNumber,
-        taxNumber: existingUser.taxNumber,
-        avatar: existingUser.avatar || existingUser.google.picture,
+        name: createdUser.name,
+        role: createdUser.role,
+        identityCardNumber: createdUser.identityCardNumber,
+        taxNumber: createdUser.taxNumber,
+        avatar: createdUser.avatar || createdUser.google.picture,
         exp: Date.now() + 1000 * 60 * 59,
       });
     }
@@ -209,7 +209,7 @@ export const googleLogin = async (req: Request, res: Response, next: NextFunctio
       const message = `
   Link to verify Account for Nomad Studio  - ${linkToVerify}
   `;
-      const data = {
+      const dataMessage = {
         to: existingUser.email,
         from: 'freelancerwebproject@gmail.com',
         subject: `Link to verify Account - Nomad Studio`,
@@ -218,7 +218,7 @@ export const googleLogin = async (req: Request, res: Response, next: NextFunctio
       };
 
       try {
-        await sgMail.send(data);
+        await sgMail.send(dataMessage);
         console.log('email sent');
       } catch (e: any) {
         console.error(e);
@@ -249,7 +249,7 @@ export const googleLogin = async (req: Request, res: Response, next: NextFunctio
         role: existingUser.role,
         identityCardNumber: existingUser.identityCardNumber,
         taxNumber: existingUser.taxNumber,
-        avatar: existingUser.avatar || data.picture,
+        avatar: existingUser.avatar || existingUser.google.picture,
         exp: Date.now() + 1000 * 60 * 59,
       });
     }
@@ -308,7 +308,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     role: existingUser.role,
     identityCardNumber: existingUser.identityCardNumber,
     taxNumber: existingUser.taxNumber,
-    avatar: existingUser.avatar,
+    avatar: existingUser.avatar || existingUser.google.picture,
     exp: Date.now() + 1000 * 60 * 59,
   });
 };
@@ -831,10 +831,8 @@ export const addProject = async (req: userData, res: Response, next: NextFunctio
     await newProject.save();
     // Push reference to projects
     existingUser.projects.push(newProject);
-    // Push reference to projects
-    existingFreelancer.projects.push(newProject);
-    // Saving Models
     await existingUser.save();
+    existingFreelancer.projects.push(newProject);
     await existingFreelancer.save();
   } catch (e) {
     const error = new HttpError('Something wrong with savings models', 500);
@@ -1155,14 +1153,38 @@ export const addClient = async (req: userData, res: Response, next: NextFunction
 
   let existingFreelancer;
   try {
+    await createdUser.save();
     existingFreelancer = await User.findById(userId);
     existingFreelancer.users.push(createdUser);
     await existingFreelancer.save();
-    await createdUser.save();
   } catch (err) {
     console.log(err);
-    const error = new HttpError('Signing up failed, please try again later 3.', 500);
+    const error = new HttpError('Signing up failed, please try again later and check if ID or Tax Number is not duplicated with other clients.', 500);
     return next(error);
+  }
+
+  const messageText = `
+  Message from Nomad Studio With Credentials to Log In - \r\n
+  Name: ${createdUser.name} \r\n
+  Email: ${createdUser.email} \r\n
+  Password: ${password}
+  `;
+  const data = {
+    to: createdUser.email,
+    from: 'freelancerwebproject@gmail.com',
+    subject: `Nomad Studio - Credentials to Log In on Account`,
+    text: messageText,
+    html: messageText.replace(/\r\n/g, '<br>'),
+  };
+
+  try {
+    await sgMail.send(data);
+    console.log('email sent');
+  } catch (e: any) {
+    console.error(e);
+    if (e.response) {
+      console.error(e.response.body);
+    }
   }
 
   res.status(201).json({ userId: createdUser.id, email: createdUser.email, name: createdUser.name, role: createdUser.role });
@@ -1342,7 +1364,7 @@ async function getMessages(id: string) {
   } catch (e: any) {
     console.log(e);
   }
-  return allMessages.messages;
+  return allMessages?.messages;
 }
 function stopServerForClient(id: string) {
   const clientsFiltered = clients.filter((item) => item.id === id);
