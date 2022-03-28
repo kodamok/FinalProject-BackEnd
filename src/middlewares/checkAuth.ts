@@ -39,14 +39,14 @@ export default async (req: userData, res: Response, next: NextFunction) => {
     // Check if this is asking for verifyEmail
     if (!path.includes('verifyEmail')) {
       // Verifying email
-      if (!decodedToken.verifiedEmail) throw new HttpError('Authorization failed! 2', 403);
+      if (!decodedToken.verifiedEmail) throw new HttpError('Authorization failed! Verify your email', 403);
     }
     req.userData = { userId: decodedToken.userId, role: decodedToken.role, verifiedEmail: decodedToken.verifiedEmail, email: decodedToken.email };
 
     return next();
   } catch (err) {
     console.log('middleware Auth5');
-    const error = new HttpError('Authorization failed! 3', 403);
+    const error = new HttpError('Authorization failed! You will be logged out', 403);
     return next(error);
   }
 };

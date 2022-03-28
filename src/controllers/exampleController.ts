@@ -86,6 +86,7 @@ export const googleLogin = async (req: Request, res: Response, next: NextFunctio
       password: hashedPassword,
       verifiedEmail: data.verified_email,
       role: 'Freelancer',
+      avatar: data.picture,
       google: data,
     });
     try {
@@ -177,7 +178,7 @@ export const googleLogin = async (req: Request, res: Response, next: NextFunctio
         role: createdUser.role,
         identityCardNumber: createdUser.identityCardNumber,
         taxNumber: createdUser.taxNumber,
-        avatar: createdUser.avatar || createdUser.google.picture,
+        avatar: createdUser.avatar,
         exp: Date.now() + 1000 * 60 * 59,
       });
     }
@@ -308,7 +309,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     role: existingUser.role,
     identityCardNumber: existingUser.identityCardNumber,
     taxNumber: existingUser.taxNumber,
-    avatar: existingUser.avatar || existingUser.google.picture,
+    avatar: existingUser.avatar || existingUser.google?.picture,
     exp: Date.now() + 1000 * 60 * 59,
   });
 };
