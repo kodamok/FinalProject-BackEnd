@@ -72,7 +72,7 @@ router.get('/project/:limit?', getProjects as any);
 router.get('/projectOne/:projectId', getOneProject);
 // POST
 router.post('/project/:clientId', addProject as any);
-router.post('/uploadFile/project/:projectId', handleUploadMiddleware.array('files2', 6), uploadFilesToProject as any);
+router.post('/uploadFile/project/:projectId', handleUploadMiddleware.array('files2', 10), uploadFilesToProject as any);
 // PATCH
 router.patch('/project/:projectId', updateOneProject as any);
 // DELETE

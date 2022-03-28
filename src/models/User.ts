@@ -16,7 +16,7 @@ const userSchema = new Schema(
     freelancers: [{ type: mongoose.Types.ObjectId, required: false, ref: 'user' }],
     identityCardNumber: { type: String, required: false, unique: true, sparse: true },
     phone: String,
-    taxNumber: String,
+    taxNumber: { type: String, required: false, unique: true, sparse: true },
     paymentMethod: String,
     avatar: String,
     google: {},

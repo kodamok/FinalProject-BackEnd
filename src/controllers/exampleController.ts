@@ -1096,15 +1096,12 @@ export const deleteOneClient = async (req: Request, res: Response, next: NextFun
   res.send({ message: 'User deleted' });
 };
 export const addClient = async (req: userData, res: Response, next: NextFunction) => {
-  const { name, email, password, phone } = req.body;
+  const { name, email, password, phoneNumber, identityCardNumber, taxNumber, image } = req.body;
   const { userId } = req.userData;
   if (password.length < 6) return next(new HttpError('Password must be at least 6 characters', 404));
   if (name.length < 3) return next(new HttpError('Name must be at least 3 characters', 404));
-  // const name = 'John3MyClient';
-  // const email = 'John15@gmail.com';
-  // const password = '1231231';
-  // const freelancerId = '6217d7d302619e4c82dce9d1';
   let existingUser;
+  console.log(req.body);
   try {
     existingUser = await User.findOne({ email: email });
   } catch (err) {
@@ -1125,11 +1122,33 @@ export const addClient = async (req: userData, res: Response, next: NextFunction
     return next(error);
   }
 
+  let imageUrl;
+  if (image) {
+    try {
+      await cloudinary.uploader
+        .upload(image, {
+          quality: 70,
+          upload_preset: 'ml_default',
+        })
+        .then((result: any) => {
+          console.log({ result });
+          imageUrl = result.secure_url;
+        });
+    } catch (e) {
+      console.log(e);
+      const error = new HttpError('something wrong with upload image', 500);
+      return next(error);
+    }
+  }
+
   const createdUser = new User({
     name,
     email,
     password: hashedPassword,
-    phone,
+    phone: phoneNumber,
+    avatar: imageUrl,
+    identityCardNumber,
+    taxNumber,
     verifiedEmail: true,
     freelancers: userId,
   });
