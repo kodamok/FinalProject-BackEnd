@@ -41,6 +41,7 @@ const fileFilter = (req: any, file: Express.Multer.File, callback: FileFilterCal
   if (isAllowedMimetype(fileMime)) {
     callback(null, true);
   } else {
+    console.log(file.mimetype);
     const error = `Error: This extension ${file.originalname.split('.').pop()} is not allowed`;
     req.fileValidationError = error;
     console.log(error);
