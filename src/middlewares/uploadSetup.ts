@@ -41,6 +41,7 @@ const fileFilter = (req: any, file: Express.Multer.File, callback: FileFilterCal
   if (isAllowedMimetype(fileMime)) {
     callback(null, true);
   } else {
+    console.log(file.mimetype);
     const error = `Error: This extension ${file.originalname.split('.').pop()} is not allowed`;
     req.fileValidationError = error;
     console.log(error);
@@ -53,6 +54,8 @@ const getUniqFileName = (originalname: string, mimetype: string) => {
   return `${name}.${ext === 'blob' ? mimetype.split('/').pop() : ext}`;
 };
 
+// console.log('bucket Name', process.env.AWS_BUCKET_NAME);
+
 export const handleUploadMiddleware = multer({
   fileFilter,
   storage: multerS3({
@@ -63,7 +66,7 @@ export const handleUploadMiddleware = multer({
     key: function (req: userData, file: any, cb) {
       const { userId } = req.userData;
       const fileName = getUniqFileName(file.originalname, file.mimetype);
-      const s3_inner_directory = 'public_asset';
+      const s3_inner_directory = process.env.AWS_FOLDER_NAME;
       const finalPath = `${s3_inner_directory}/${userId}uuid-${fileName}`;
       file.userData = userId;
       file.newName = `${userId}uuid-${fileName}`;

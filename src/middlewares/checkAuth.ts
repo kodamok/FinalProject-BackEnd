@@ -17,15 +17,11 @@ export interface userData extends Request {
 }
 
 export default async (req: userData, res: Response, next: NextFunction) => {
-  // console.log('middleware Auth');
-  // console.log('reg method?', req.method === 'OPTIONS');
   if (req.method === 'OPTIONS') return next();
   const { JWT_KEY } = process.env;
   if (!JWT_KEY) return;
-  // console.log('middleware Auth2');
   const path = req.path.split('/');
   try {
-    // console.log('middleware Auth3');
     // Checking if token exist
     let token: string;
     if (path.length > 2 && path[2].length > 40) {
@@ -34,28 +30,23 @@ export default async (req: userData, res: Response, next: NextFunction) => {
       token = req.headers.authorization.split(' ')[1]; // Authorization: 'Bearer TOKEN'
     }
 
-    // const token = req.headers.authorization.split(' ')[1];
-    // console.log({ token });
     // Not necessary ->
     // if (!token) throw new HttpError('Authorization failed! 1', 403);
 
     // Decoding Token
     const decodedToken = (await jwt.verify(token, JWT_KEY)) as DataStoredInToken;
-    // console.log({ decodedToken });
 
     // Check if this is asking for verifyEmail
     if (!path.includes('verifyEmail')) {
       // Verifying email
-      if (!decodedToken.verifiedEmail) throw new HttpError('Authorization failed! 2', 403);
+      if (!decodedToken.verifiedEmail) throw new HttpError('Authorization failed! Verify your email', 403);
     }
     req.userData = { userId: decodedToken.userId, role: decodedToken.role, verifiedEmail: decodedToken.verifiedEmail, email: decodedToken.email };
-    // console.log({ user: req.userData });
 
-    // console.log('middleware Auth4 - Success');
     return next();
   } catch (err) {
     console.log('middleware Auth5');
-    const error = new HttpError('Authorization failed! 3', 403);
+    const error = new HttpError('Authorization failed! You will be logged out', 403);
     return next(error);
   }
 };
